@@ -8253,10 +8253,21 @@ def make_bsl_helpers(
                     elif file_path.endswith("Form.xml"):
                         # CF: Ext/Form.xml → Ext/Form/Module.bsl
                         mp = file_path.rsplit("/", 1)[0] + "/Form/Module.bsl"
+                    elif file_path.endswith("Form.elem.json"):
+                        # v8unpack: exact sibling module, without path heuristics.
+                        mp = file_path[: -len(".elem.json")] + ".obj.bsl"
                     else:
                         mp = ""
-                    # Check if exists via glob
-                    if mp:
+                    if mp and file_path.endswith("Form.elem.json"):
+                        candidate = _base_path_resolved / mp
+                        try:
+                            candidate.lstat()
+                            candidate.resolve(strict=True).relative_to(_base_path_resolved)
+                            if candidate.is_file() and not candidate.is_symlink():
+                                module_path = mp
+                        except (FileNotFoundError, OSError, ValueError):
+                            pass
+                    elif mp:
                         found = glob_files_fn(mp)
                         module_path = mp if found else ""
 
@@ -9742,6 +9753,18 @@ def make_bsl_helpers(
             "v8unpack_metadata_unsupported_count": stats.get("v8unpack_metadata_unsupported_count"),
             "v8unpack_metadata_diagnostics_json": stats.get("v8unpack_metadata_diagnostics_json"),
             "v8unpack_metadata_snapshot_json": stats.get("v8unpack_metadata_snapshot_json"),
+            # v18 v8unpack JSON form completeness
+            "v8unpack_form_status": stats.get("v8unpack_form_status"),
+            "v8unpack_form_total": stats.get("v8unpack_form_total"),
+            "v8unpack_form_indexed": stats.get("v8unpack_form_indexed"),
+            "v8unpack_form_failed": stats.get("v8unpack_form_failed"),
+            "v8unpack_form_unsupported": stats.get("v8unpack_form_unsupported"),
+            "v8unpack_form_unproven_fragments": stats.get(
+                "v8unpack_form_unproven_fragments"
+            ),
+            "v8unpack_form_diagnostics_json": stats.get(
+                "v8unpack_form_diagnostics_json"
+            ),
             "metadata_objects_count": stats.get("metadata_objects", 0),
             "metadata_type_ids_count": stats.get("metadata_type_ids", 0),
             # Git fast-path acceleration availability for incremental update (v1.8.0+)

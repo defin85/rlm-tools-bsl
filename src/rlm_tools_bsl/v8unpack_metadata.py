@@ -294,6 +294,7 @@ class V8UnpackMetadataResult:
     config_synonym: str = ""
     metadata_objects: list[tuple] = field(default_factory=list)
     metadata_type_ids: list[tuple] = field(default_factory=list)
+    metadata_attribute_names: dict[tuple[str, str, str], str] = field(default_factory=dict)
     object_attributes: list[tuple] = field(default_factory=list)
     object_synonyms: list[tuple] = field(default_factory=list)
     metadata_references: list[tuple] = field(default_factory=list)
@@ -379,6 +380,33 @@ def _unquote(value: object) -> str:
 def _uuid(value: object) -> str:
     text = str(value)
     return str(uuid.UUID(text))
+
+
+def _collect_descriptor_names(
+    value: object,
+    target: dict[tuple[str, str, str], str],
+    owner: tuple[str, str],
+) -> None:
+    if isinstance(value, list):
+        for left, right in zip(value, value[1:]):
+            if isinstance(left, list) and isinstance(right, str):
+                identifiers = [
+                    item
+                    for item in left
+                    if isinstance(item, str)
+                    and len(item) == 36
+                    and item.count("-") == 4
+                ]
+                if len(identifiers) == 1:
+                    try:
+                        target[(*owner, _uuid(identifiers[0]))] = _unquote(right)
+                    except ValueError:
+                        pass
+        for item in value:
+            _collect_descriptor_names(item, target, owner)
+    elif isinstance(value, dict):
+        for item in value.values():
+            _collect_descriptor_names(item, target, owner)
 
 
 def _at(value: object, path: tuple[int, ...]) -> object:
@@ -542,6 +570,11 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
                 object_name = str(main_data["name"])
                 if not object_name or object_name != owner_dir.name:
                     raise ValueError("owner name mismatch")
+                _collect_descriptor_names(
+                    main_data,
+                    result.metadata_attribute_names,
+                    (kind, object_name),
+                )
             except FileNotFoundError:
                 events.append(("missing_required_json", "main", rel_main))
                 continue
@@ -691,6 +724,9 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
                 for child, attr_kind, ts_name in rows:
                     try:
                         _child_uuid, attr_name, attr_synonym = _descriptor(child)
+                        result.metadata_attribute_names[
+                            (kind, object_name, _child_uuid)
+                        ] = attr_name
                         attr_type, unresolved = _decode_pattern(
                             child,
                             resolved_types,

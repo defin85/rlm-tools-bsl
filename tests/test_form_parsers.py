@@ -252,6 +252,12 @@ class TestParseFormXml:
         assert dl["main_table"] == "Document.РеализацияТоваровУслуг"
         assert "ВЫБРАТЬ" in dl["query_text"]
 
+    def test_cf_main_attribute_tag(self):
+        xml = _CF_FORM_XML.replace("<Main>", "<MainAttribute>").replace(
+            "</Main>", "</MainAttribute>"
+        )
+        assert parse_form_xml(xml)["attributes"][0]["main"] is True
+
     def test_cf_ext_info_scope(self):
         """CF ext_info events (AfterWrite, etc.) get scope='ext_info'."""
         xml = """\
@@ -533,7 +539,7 @@ class TestFormElementsIndex:
         conn.close()
         assert has["value"] == "1"
         assert int(count["value"]) > 0
-        assert int(bv["value"]) == 17
+        assert int(bv["value"]) == 18
 
     def test_index_reader_get_form_elements(self, indexed_db):
         db_path, _ = indexed_db

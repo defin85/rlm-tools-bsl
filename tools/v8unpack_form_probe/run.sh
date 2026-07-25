@@ -11,7 +11,7 @@ onec_client="${ONEC_CLIENT:-$onec_dir/1cv8}"
 v8unpack="${V8UNPACK:-$repo_root/.artifacts/v8unpack-oracle-802/v8unpack-1.2.9-venv/bin/v8unpack}"
 form_name="ПробнаяФорма"
 
-for command in "$ibcmd" "$onec_client" "$v8unpack" xpra Xvfb xdpyinfo jq base64 timeout; do
+for command in "$ibcmd" "$onec_client" "$v8unpack" xpra Xvfb xdpyinfo jq base64 python3 timeout; do
 	if ! command -v "$command" >/dev/null 2>&1 && [ ! -x "$command" ]; then
 		printf 'Не найдена команда: %s\n' "$command" >&2
 		exit 1
@@ -25,11 +25,12 @@ ib_dir="$run_root/ib"
 data_dir="$run_root/data"
 json_dir="$run_root/json"
 probe_json_dir="$run_root/probe-json"
+attribute_json_dir="$run_root/attribute-json"
+data_path_json_dir="$run_root/data-path-json"
 client_out="$run_root/client.out"
-mkdir -p "$source_dir/CommonForms/$form_name/Ext"
+mkdir -p "$source_dir"
 cp "$fixture/Configuration.xml" "$source_dir/"
-cp -a "$fixture/Languages" "$fixture/Ext" "$source_dir/"
-cp "$fixture/CommonForms/$form_name.xml" "$source_dir/CommonForms/"
+cp -a "$fixture/Languages" "$fixture/Ext" "$fixture/CommonForms" "$source_dir/"
 base64 -d "$fixture/CommonForms/$form_name/Ext/Form.bin.b64" \
 	>"$source_dir/CommonForms/$form_name/Ext/Form.bin"
 
@@ -43,6 +44,12 @@ exec > >(tee "$run_root/probe.log") 2>&1
 
 "$v8unpack" -E "$run_root/base.cf" "$json_dir"
 main_json="$json_dir/CommonForm/$form_name/CommonForm.json"
+managed_name="УправляемаяПробнаяФорма"
+python3 "$tool_dir/verify.py" \
+	"$fixture/CommonForms/$managed_name/Ext/Form.xml" \
+	"$json_dir/CommonForm/$managed_name/CommonForm.json" \
+	"$json_dir/CommonForm/$managed_name/CommonForm.elem.json" \
+	"$run_root/managed-parity.json"
 handler_paths="$run_root/handler-paths.json"
 jq '[paths(scalars) as $path
 	| select(getpath($path) == "\"ПриОткрытии\"")
@@ -66,6 +73,49 @@ jq -ne --slurpfile base "$main_json" \
 cp "$fixture/probe/CommonForm.obj.bsl" \
 	"$probe_json_dir/CommonForm/$form_name/CommonForm.obj.bsl"
 "$v8unpack" -B "$probe_json_dir" "$run_root/probe.cf"
+
+cp -a "$json_dir" "$attribute_json_dir"
+attribute_elem_json="$attribute_json_dir/CommonForm/$form_name/CommonForm.elem.json"
+jq '.props[0].name = "РеквизитПробника"
+	| .props[0].raw[4] = "\"РеквизитПробника\""' \
+	"$json_dir/CommonForm/$form_name/CommonForm.elem.json" >"$attribute_elem_json"
+jq -ne \
+	--slurpfile base "$json_dir/CommonForm/$form_name/CommonForm.elem.json" \
+	--slurpfile probe "$attribute_elem_json" \
+	'($base[0]
+		| .props[0].name = "РеквизитПробника"
+		| .props[0].raw[4] = "\"РеквизитПробника\"") == $probe[0]' \
+	>/dev/null
+"$v8unpack" -B "$attribute_json_dir" "$run_root/attribute.cf"
+
+cp -a "$json_dir" "$data_path_json_dir"
+data_path_main_json="$data_path_json_dir/CommonForm/$form_name/CommonForm.json"
+jq '.form[0][0][2][3] = ["1", ["3", ["1", ["1"]]]]' \
+	"$main_json" >"$data_path_main_json"
+jq -ne --slurpfile base "$main_json" \
+	--slurpfile probe "$data_path_main_json" \
+	'($base[0] | .form[0][0][2][3] = ["1", ["3", ["1", ["1"]]]])
+		== $probe[0]' \
+	>/dev/null
+"$v8unpack" -B "$data_path_json_dir" "$run_root/data-path.cf"
+
+"$ibcmd" config load --data="$data_dir" --database-path="$ib_dir" "$run_root/attribute.cf"
+"$ibcmd" config apply --data="$data_dir" --database-path="$ib_dir" --force
+"$ibcmd" config save --data="$data_dir" --database-path="$ib_dir" "$run_root/attribute-roundtrip.cf"
+"$v8unpack" -E "$run_root/attribute-roundtrip.cf" "$run_root/attribute-roundtrip-json"
+jq -e '.props[0]
+	| .name == "РеквизитПробника"
+		and .raw[4] == "\"РеквизитПробника\""' \
+	"$run_root/attribute-roundtrip-json/CommonForm/$form_name/CommonForm.elem.json" \
+	>/dev/null
+
+"$ibcmd" config load --data="$data_dir" --database-path="$ib_dir" "$run_root/data-path.cf"
+"$ibcmd" config apply --data="$data_dir" --database-path="$ib_dir" --force
+"$ibcmd" config save --data="$data_dir" --database-path="$ib_dir" "$run_root/data-path-roundtrip.cf"
+"$v8unpack" -E "$run_root/data-path-roundtrip.cf" "$run_root/data-path-roundtrip-json"
+jq -e '.data["Страница1/ПолеПробника"].prop == "Параметры"' \
+	"$run_root/data-path-roundtrip-json/CommonForm/$form_name/CommonForm.elem.json" \
+	>/dev/null
 
 "$ibcmd" config load --data="$data_dir" --database-path="$ib_dir" "$run_root/probe.cf"
 "$ibcmd" config apply --data="$data_dir" --database-path="$ib_dir" --force
@@ -123,6 +173,11 @@ jq -n \
 	--arg probe_cf_sha256 "$(sha256sum "$run_root/probe.cf" | cut -d' ' -f1)" \
 	--arg base_form_json_sha256 "$(sha256sum "$main_json" | cut -d' ' -f1)" \
 	--arg probe_form_json_sha256 "$(sha256sum "$probe_main_json" | cut -d' ' -f1)" \
+	--arg attribute_cf_sha256 "$(sha256sum "$run_root/attribute.cf" | cut -d' ' -f1)" \
+	--arg attribute_roundtrip_cf_sha256 "$(sha256sum "$run_root/attribute-roundtrip.cf" | cut -d' ' -f1)" \
+	--arg data_path_cf_sha256 "$(sha256sum "$run_root/data-path.cf" | cut -d' ' -f1)" \
+	--arg data_path_roundtrip_cf_sha256 "$(sha256sum "$run_root/data-path-roundtrip.cf" | cut -d' ' -f1)" \
+	--arg managed_parity_sha256 "$(sha256sum "$run_root/managed-parity.json" | cut -d' ' -f1)" \
 	--slurpfile handler_paths "$handler_paths" \
 	--slurpfile runtime_events "$run_root/events.jsonl" \
 	'{
@@ -136,11 +191,28 @@ jq -n \
 		virtual_display: $virtual_display,
 		runtime_events: $runtime_events,
 		handler_paths: $handler_paths[0],
+		static_probes: {
+			attribute: {
+				json_pointers: ["/props/0/name", "/props/0/raw/4"],
+				before: "Параметры",
+				after: "РеквизитПробника"
+			},
+			data_path: {
+				json_pointer: "/form/0/0/2/3",
+				element: "ПолеПробника",
+				attribute: "Параметры"
+			}
+		},
 		sha256: {
 			base_cf: $base_cf_sha256,
 			probe_cf: $probe_cf_sha256,
 			base_form_json: $base_form_json_sha256,
-			probe_form_json: $probe_form_json_sha256
+			probe_form_json: $probe_form_json_sha256,
+			attribute_cf: $attribute_cf_sha256,
+			attribute_roundtrip_cf: $attribute_roundtrip_cf_sha256,
+			data_path_cf: $data_path_cf_sha256,
+			data_path_roundtrip_cf: $data_path_roundtrip_cf_sha256,
+			managed_parity: $managed_parity_sha256
 		}
 	}' >"$run_root/result.json"
 

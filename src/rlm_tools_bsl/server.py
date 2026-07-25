@@ -1028,10 +1028,13 @@ def _rlm_start(
             "index_status": ("outdated" if idx_version_outdated else _INDEX_STATUS_LABELS.get(idx_status, "ok")),
             "warnings": idx_warnings,
         }
+        if idx_stats.get("source_format") == "v8unpack":
+            index_block["v8unpack_form_status"] = idx_stats.get(
+                "v8unpack_form_status"
+            )
     else:
-        # No index loaded — SAME key set with safe defaults so the payload shape is stable
-        # (strategy/docs tell the agent to read these from rlm_start.index; a missing key
-        # would break that or push agents back to a get_index_info() call).
+        # No index loaded — keep the common key set stable. Format-specific
+        # enrichments such as v8unpack_form_status are present only when applicable.
         index_block = {
             "loaded": index_loaded,
             "index_check": "quick",

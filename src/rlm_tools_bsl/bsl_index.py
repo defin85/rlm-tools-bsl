@@ -31,6 +31,7 @@ from rlm_tools_bsl.v8unpack_metadata import (
     collect_v8unpack_metadata,
     read_v8unpack_json,
 )
+from rlm_tools_bsl.v8unpack_forms import collect_v8unpack_forms
 from rlm_tools_bsl.bsl_xml_parsers import (
     _CODE_MANAGER_COLLECTIONS,
     _CODE_QUERY_COLLECTIONS,
@@ -40,7 +41,7 @@ from rlm_tools_bsl.bsl_xml_parsers import (
 
 logger = logging.getLogger(__name__)
 
-BUILDER_VERSION = 17
+BUILDER_VERSION = 18
 
 
 _active_locks: dict[str, "_BuildLock"] = {}
@@ -5650,7 +5651,7 @@ def _collect_extension_overrides(
 # ---------------------------------------------------------------------------
 
 
-def _collect_form_elements(base_path: str) -> list[tuple]:
+def _collect_xml_form_elements(base_path: str) -> list[tuple]:
     """Collect form elements (handlers, commands, attributes) from all forms.
 
     Returns list of tuples ready for INSERT into form_elements:
@@ -5792,35 +5793,121 @@ def _collect_form_elements(base_path: str) -> list[tuple]:
     return all_results
 
 
-_FORM_ELEMENTS_SCHEMA = (
-    "CREATE TABLE IF NOT EXISTS form_elements ("
-    "id INTEGER PRIMARY KEY, "
-    "object_name TEXT NOT NULL, "
-    "category TEXT NOT NULL, "
-    "form_name TEXT NOT NULL, "
-    "kind TEXT NOT NULL, "
-    "scope TEXT NOT NULL DEFAULT '', "
-    "element_name TEXT NOT NULL DEFAULT '', "
-    "element_type TEXT NOT NULL DEFAULT '', "
-    "event TEXT NOT NULL DEFAULT '', "
-    "handler TEXT NOT NULL DEFAULT '', "
-    "data_path TEXT NOT NULL DEFAULT '', "
-    "main_table TEXT NOT NULL DEFAULT '', "
-    "attribute_is_main INTEGER DEFAULT 0, "
-    "extra_json TEXT NOT NULL DEFAULT '', "
-    "file TEXT NOT NULL);\n"
-    "CREATE INDEX IF NOT EXISTS idx_fe_object ON form_elements(object_name COLLATE NOCASE);\n"
-    "CREATE INDEX IF NOT EXISTS idx_fe_object_form ON form_elements(object_name, form_name);\n"
-    "CREATE INDEX IF NOT EXISTS idx_fe_handler ON form_elements(handler COLLATE NOCASE);\n"
-    "CREATE INDEX IF NOT EXISTS idx_fe_kind ON form_elements(kind);\n"
-)
-
 _FORM_ELEMENTS_INSERT = (
     "INSERT INTO form_elements "
     "(object_name, category, form_name, kind, scope, element_name, element_type, "
     "event, handler, data_path, main_table, attribute_is_main, extra_json, file) "
     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
+
+
+def _ensure_form_elements_schema(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS form_elements ("
+        "id INTEGER PRIMARY KEY, "
+        "object_name TEXT NOT NULL, "
+        "category TEXT NOT NULL, "
+        "form_name TEXT NOT NULL, "
+        "kind TEXT NOT NULL, "
+        "scope TEXT NOT NULL DEFAULT '', "
+        "element_name TEXT NOT NULL DEFAULT '', "
+        "element_type TEXT NOT NULL DEFAULT '', "
+        "event TEXT NOT NULL DEFAULT '', "
+        "handler TEXT NOT NULL DEFAULT '', "
+        "data_path TEXT NOT NULL DEFAULT '', "
+        "main_table TEXT NOT NULL DEFAULT '', "
+        "attribute_is_main INTEGER DEFAULT 0, "
+        "extra_json TEXT NOT NULL DEFAULT '', "
+        "file TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fe_object "
+        "ON form_elements(object_name COLLATE NOCASE)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fe_object_form "
+        "ON form_elements(object_name, form_name)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_fe_handler "
+        "ON form_elements(handler COLLATE NOCASE)"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_fe_kind ON form_elements(kind)")
+
+
+def _refresh_form_elements(
+    conn: sqlite3.Connection,
+    base_path: str,
+    *,
+    build_metadata: bool,
+) -> list[tuple]:
+    """Atomically replace the format-specific form layer."""
+    source_format = detect_format(base_path).primary_format
+    if not build_metadata:
+        if conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='form_elements'"
+        ).fetchone():
+            conn.execute("DELETE FROM form_elements")
+        meta = {
+            "v8unpack_form_status": "disabled",
+            "v8unpack_form_total": "0",
+            "v8unpack_form_indexed": "0",
+            "v8unpack_form_failed": "0",
+            "v8unpack_form_unsupported": "0",
+            "v8unpack_form_unproven_fragments": "0",
+            "v8unpack_form_diagnostics_json": "[]",
+        }
+        conn.execute("DELETE FROM index_meta WHERE key LIKE 'v8unpack_form_%'")
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            meta.items(),
+        )
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            (("has_form_elements", "0"), ("form_elements_count", "0")),
+        )
+        return []
+
+    _ensure_form_elements_schema(conn)
+    if source_format is SourceFormat.V8UNPACK:
+        result = collect_v8unpack_forms(base_path)
+        rows = result.rows
+        meta = result.index_meta()
+    else:
+        rows = _collect_xml_form_elements(base_path)
+        meta = {
+            "v8unpack_form_status": "not_applicable",
+            "v8unpack_form_total": "0",
+            "v8unpack_form_indexed": "0",
+            "v8unpack_form_failed": "0",
+            "v8unpack_form_unsupported": "0",
+            "v8unpack_form_unproven_fragments": "0",
+            "v8unpack_form_diagnostics_json": "[]",
+        }
+
+    conn.execute("SAVEPOINT form_elements_refresh")
+    try:
+        conn.execute("DELETE FROM form_elements")
+        if rows:
+            conn.executemany(_FORM_ELEMENTS_INSERT, rows)
+        conn.execute("DELETE FROM index_meta WHERE key LIKE 'v8unpack_form_%'")
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            meta.items(),
+        )
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            (
+                ("has_form_elements", "1" if build_metadata else "0"),
+                ("form_elements_count", str(len(rows))),
+            ),
+        )
+        conn.execute("RELEASE SAVEPOINT form_elements_refresh")
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT form_elements_refresh")
+        conn.execute("RELEASE SAVEPOINT form_elements_refresh")
+        raise
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -6111,6 +6198,11 @@ class IndexBuilder:
                 build_metadata=build_metadata,
                 build_synonyms=build_synonyms,
             )
+            fe_rows = _refresh_form_elements(
+                conn,
+                base_path,
+                build_metadata=build_metadata,
+            )
             fp_rows = _collect_file_paths(base_path)
             _insert_file_paths(conn, fp_rows)
             self._write_meta(
@@ -6133,14 +6225,7 @@ class IndexBuilder:
                 "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
                 ("extension_overrides_count", "0"),
             )
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("has_form_elements", "0"),
-            )
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("form_elements_count", "0"),
-            )
+            logger.info("Form elements: %d entries", len(fe_rows))
             # Save git HEAD so first update can use git fast path
             if _git_available(base_path):
                 head = _git_head_sha(base_path)
@@ -6293,22 +6378,12 @@ class IndexBuilder:
         )
 
         # Level-9: form elements (handlers, commands, attributes)
-        fe_rows: list[tuple] = []
-        if build_metadata:
-            conn.executescript(_FORM_ELEMENTS_SCHEMA)
-            fe_rows = _collect_form_elements(base_path)
-            if fe_rows:
-                conn.executemany(_FORM_ELEMENTS_INSERT, fe_rows)
-                conn.commit()
-                logger.info("Form elements: %d entries", len(fe_rows))
-        conn.execute(
-            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("has_form_elements", "1" if build_metadata else "0"),
+        fe_rows = _refresh_form_elements(
+            conn,
+            base_path,
+            build_metadata=build_metadata,
         )
-        conn.execute(
-            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-            ("form_elements_count", str(len(fe_rows))),
-        )
+        logger.info("Form elements: %d entries", len(fe_rows))
 
         # Level-11: object attributes and predefined items meta
         oa_count = len(md_tables.get("object_attributes", [])) if build_metadata else 0
@@ -7088,21 +7163,12 @@ class IndexBuilder:
         )
 
         # Level-9: form elements (schema upgrade v9→v10, full refresh)
-        if has_metadata:
-            conn.executescript(_FORM_ELEMENTS_SCHEMA)
-            conn.execute("DELETE FROM form_elements")
-            fe_rows = _collect_form_elements(base_path)
-            if fe_rows:
-                conn.executemany(_FORM_ELEMENTS_INSERT, fe_rows)
-                logger.info("Form elements: %d entries", len(fe_rows))
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("has_form_elements", "1"),
-            )
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("form_elements_count", str(len(fe_rows))),
-            )
+        fe_rows = _refresh_form_elements(
+            conn,
+            base_path,
+            build_metadata=has_metadata,
+        )
+        logger.info("Form elements: %d entries", len(fe_rows))
 
         # Bump builder_version to current
         conn.execute(
@@ -7446,22 +7512,14 @@ class IndexBuilder:
                 )
                 _insert_metadata_tables_selective(conn, md_tables, fallback_categories)
 
-        # form_elements: only if .form files changed
-        if form_changed and has_metadata:
-            try:
-                conn.execute("DELETE FROM form_elements")
-            except sqlite3.OperationalError:
-                pass
-            fe_rows = _collect_form_elements(base_path)
-            if fe_rows:
-                conn.executemany(_FORM_ELEMENTS_INSERT, fe_rows)
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("has_form_elements", "1"),
-            )
-            conn.execute(
-                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
-                ("form_elements_count", str(len(fe_rows))),
+        # v8unpack JSON can be Git-ignored, so refresh its small closed layer on
+        # every update. CF/EDT keep the existing .form-triggered behavior.
+        is_v8unpack = detect_format(base_path).primary_format is SourceFormat.V8UNPACK
+        if is_v8unpack or (form_changed and has_metadata):
+            _refresh_form_elements(
+                conn,
+                base_path,
+                build_metadata=has_metadata,
             )
 
         # object_synonyms: selective by category (only .xml/.mdo trigger).
@@ -8249,6 +8307,13 @@ def _zero_stats() -> dict:
         "v8unpack_metadata_diagnostics_json": None,
         "v8unpack_metadata_snapshot_json": None,
         "v8unpack_metadata_recovery_pending": None,
+        "v8unpack_form_status": None,
+        "v8unpack_form_total": None,
+        "v8unpack_form_indexed": None,
+        "v8unpack_form_failed": None,
+        "v8unpack_form_unsupported": None,
+        "v8unpack_form_unproven_fragments": None,
+        "v8unpack_form_diagnostics_json": None,
         "event_subscriptions": 0,
         "scheduled_jobs": 0,
         "functional_options": 0,
@@ -9636,6 +9701,13 @@ class IndexReader:
                 "v8unpack_metadata_diagnostics_json",
                 "v8unpack_metadata_snapshot_json",
                 "v8unpack_metadata_recovery_pending",
+                "v8unpack_form_status",
+                "v8unpack_form_total",
+                "v8unpack_form_indexed",
+                "v8unpack_form_failed",
+                "v8unpack_form_unsupported",
+                "v8unpack_form_unproven_fragments",
+                "v8unpack_form_diagnostics_json",
             ):
                 meta_row = self._conn.execute("SELECT value FROM index_meta WHERE key = ?", (key,)).fetchone()
                 stats[key] = meta_row["value"] if meta_row else None
@@ -9655,6 +9727,11 @@ class IndexReader:
                 "v8unpack_metadata_structural_indexed",
                 "v8unpack_metadata_structural_failed",
                 "v8unpack_metadata_unsupported_count",
+                "v8unpack_form_total",
+                "v8unpack_form_indexed",
+                "v8unpack_form_failed",
+                "v8unpack_form_unsupported",
+                "v8unpack_form_unproven_fragments",
             ):
                 if stats.get(key) is not None:
                     stats[key] = int(stats[key])

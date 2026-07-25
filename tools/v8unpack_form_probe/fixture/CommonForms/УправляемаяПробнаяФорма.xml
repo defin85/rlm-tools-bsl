@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MetaDataObject xmlns="http://v8.1c.ru/8.3/MDClasses" xmlns:app="http://v8.1c.ru/8.2/managed-application/core" xmlns:v8="http://v8.1c.ru/8.1/data/core" version="2.20">
+	<CommonForm uuid="f0e1849e-ca42-4568-8fe4-314b7c227b1d">
+		<Properties>
+			<Name>УправляемаяПробнаяФорма</Name>
+			<Synonym><v8:item><v8:lang>ru</v8:lang><v8:content>Управляемая пробная форма</v8:content></v8:item></Synonym>
+			<Comment/>
+			<FormType>Managed</FormType>
+			<IncludeHelpInContents>false</IncludeHelpInContents>
+			<UsePurposes>
+				<v8:Value xsi:type="app:ApplicationUsePurpose" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">PlatformApplication</v8:Value>
+			</UsePurposes>
+			<UseStandardCommands>false</UseStandardCommands>
+			<ExtendedPresentation/>
+			<Explanation/>
+		</Properties>
+	</CommonForm>
+</MetaDataObject>

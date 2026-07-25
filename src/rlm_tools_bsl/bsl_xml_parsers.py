@@ -2596,7 +2596,9 @@ def _parse_form_cf(root) -> dict:
             if not attr_name:
                 continue
             # main
-            main_el = attr.find("{%s}Main" % _FORM_NS_CF)
+            main_el = attr.find("{%s}MainAttribute" % _FORM_NS_CF)
+            if main_el is None:
+                main_el = attr.find("{%s}Main" % _FORM_NS_CF)
             is_main = False
             if main_el is not None and main_el.text:
                 is_main = main_el.text.strip().lower() == "true"

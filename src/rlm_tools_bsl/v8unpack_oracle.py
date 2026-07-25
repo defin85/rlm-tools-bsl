@@ -31,6 +31,7 @@ from rlm_tools_bsl.v8unpack_metadata import (
 
 SCHEMA_VERSION = 1
 COMPARATOR_VERSION = 1
+FORM_MANIFEST_SCHEMA = "v8unpack_forms_802_v1"
 FORBIDDEN_DIAGNOSTICS = frozenset(
     {
         "unresolved_metadata_uuid",
@@ -501,6 +502,98 @@ def verify_manifests(paths: list[str | Path]) -> None:
             raise ValueError("incomplete 803 structural coverage")
 
 
+def verify_form_manifest(path: str | Path) -> dict:
+    """Verify the compact, self-contained v8unpack form evidence manifest."""
+    manifest = json.loads(Path(path).read_text(encoding="utf-8"))
+    if manifest.get("schema") != FORM_MANIFEST_SCHEMA:
+        raise ValueError("unsupported form manifest schema")
+    payload = dict(manifest)
+    content_sha256 = payload.pop("content_sha256", "")
+    if content_sha256 != _sha256(_json_bytes(payload)):
+        raise ValueError("form manifest content hash mismatch")
+    hashes = manifest.get("sha256", {})
+    if not hashes or not all(
+        isinstance(value, str) and len(value) == 64 for value in hashes.values()
+    ):
+        raise ValueError("invalid form manifest hashes")
+    paired = manifest.get("paired_managed", {})
+    counters = paired.get("counters", {})
+    if (
+        counters.get("total")
+        != counters.get("indexed", 0)
+        + counters.get("failed", 0)
+        + counters.get("unsupported", 0)
+        or counters.get("failed")
+        or counters.get("unsupported")
+        or counters.get("unproven_fragments")
+    ):
+        raise ValueError("invalid paired form counters")
+    live_forms = manifest.get("live_coverage", {}).get("forms")
+    if (
+        not isinstance(live_forms, int)
+        or
+        paired.get("source_forms") != counters.get("total")
+        or paired.get("live_form_delta") != counters.get("total") - live_forms
+        or not paired.get("live_form_delta_note")
+    ):
+        raise ValueError("invalid paired/live form inventory relation")
+    projections = paired.get("projections", {})
+    if set(projections) != {"handlers", "commands", "attributes"}:
+        raise ValueError("incomplete form projections")
+    for projection in projections.values():
+        if (
+            projection.get("xml") != projection.get("json")
+            or projection.get("missing")
+            or projection.get("extra")
+        ):
+            raise ValueError("form projection is not a zero delta")
+    coverage = manifest.get("live_coverage", {})
+    expected_families = {
+        "AccountingRegister", "AccumulationRegister", "Catalog",
+        "ChartOfAccounts", "ChartOfCalculationTypes",
+        "ChartOfCharacteristicType", "CommonForm", "DataProcessor",
+        "Document", "DocumentJournal", "Enum", "ExchangePlan",
+        "FilterCriterion", "InformationRegister", "Report",
+    }
+    if set(coverage.get("families", {})) != expected_families:
+        raise ValueError("incomplete form family coverage")
+    if sum(coverage["families"].values()) != coverage.get("forms"):
+        raise ValueError("invalid form family counters")
+    if set(coverage.get("local_versions", {})) != {"5", "7", "9", "12", "13"}:
+        raise ValueError("incomplete local form version coverage")
+    if set(coverage.get("element_versions", {})) != {
+        "1", "0-26", "0-27", "0-5-1", "0-20-16", "0-23-16", "0-25-16"
+    }:
+        raise ValueError("incomplete form element version coverage")
+    if (
+        sum(coverage["local_versions"].values()) != coverage.get("forms")
+        or sum(coverage["element_versions"].values()) != coverage.get("forms")
+        or coverage.get("module_path_present", 0)
+        + coverage.get("module_path_absent", 0)
+        != coverage.get("forms")
+    ):
+        raise ValueError("invalid form coverage counters")
+    probe = manifest.get("ordinary_probe", {})
+    if (
+        probe.get("status") != "success"
+        or probe.get("runtime_events")
+        != [
+            {
+                "action_id": "open-form",
+                "event": "ПриОткрытии",
+                "handler": "ПробаПриОткрытии",
+                "sequence": 1,
+            }
+        ]
+        or not probe.get("handler_paths")
+        or not probe.get("static_probes")
+    ):
+        raise ValueError("invalid ordinary form probe evidence")
+    if not manifest.get("commands"):
+        raise ValueError("missing form oracle reproduction command")
+    return manifest
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="action", required=True)
@@ -513,9 +606,18 @@ def main(argv: list[str] | None = None) -> int:
     manifest_sub = manifest_parser.add_subparsers(dest="manifest_action", required=True)
     verify_parser = manifest_sub.add_parser("verify")
     verify_parser.add_argument("path", nargs="+")
+    form_manifest_parser = sub.add_parser("form-manifest")
+    form_manifest_sub = form_manifest_parser.add_subparsers(
+        dest="form_manifest_action", required=True
+    )
+    form_verify_parser = form_manifest_sub.add_parser("verify")
+    form_verify_parser.add_argument("path")
     args = parser.parse_args(argv)
     if args.action == "manifest":
         verify_manifests(args.path)
+        return 0
+    if args.action == "form-manifest":
+        verify_form_manifest(args.path)
         return 0
     manifest, report = compare(
         xml_root=args.xml_root,

@@ -32,6 +32,7 @@ from rlm_tools_bsl.v8unpack_oracle import (
     _verify_manifest,
     projection_summary,
     verify_manifests,
+    verify_form_manifest,
 )
 
 
@@ -383,6 +384,15 @@ def test_real_oracle_manifests_cover_802_and_803_contracts():
             root / "structural-coverage-803.manifest.json",
         ]
     )
+
+
+def test_form_oracle_manifest_is_self_contained_and_complete():
+    manifest = verify_form_manifest(
+        Path(__file__).parent / "fixtures" / "v8unpack_oracle" / "forms-802.manifest.json"
+    )
+
+    assert manifest["paired_managed"]["forms"] == 298
+    assert manifest["live_coverage"]["forms"] == 4037
 
 
 def test_verified_builtin_type_uuids_match_xml_representation():

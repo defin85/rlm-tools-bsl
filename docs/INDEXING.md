@@ -410,6 +410,13 @@ $ rlm-bsl-index index drop D:\ERP\src
 | `file_paths_count`      | Количество записей в таблице file_paths                 | `35000`                            |
 | `has_form_elements`     | Есть ли таблица form_elements (0/1)                     | `1`                                |
 | `form_elements_count`   | Количество записей в таблице form_elements              | `250000`                           |
+| `v8unpack_form_status`  | Полнота JSON-слоя форм                                   | `complete`, `partial`, `unsupported`, `disabled`, `not_applicable` |
+| `v8unpack_form_total`   | Обнаружено JSON-форм                                     | `4037`                             |
+| `v8unpack_form_indexed` | Индексировано JSON-форм                                  | `4037`                             |
+| `v8unpack_form_failed`  | Повреждённые обязательные тройки                         | `0`                                |
+| `v8unpack_form_unsupported` | Неподдержанные контракты форм                        | `0`                                |
+| `v8unpack_form_unproven_fragments` | Неподтверждённые фрагменты                     | `0`                                |
+| `v8unpack_form_diagnostics_json` | Ограниченная диагностика слоя форм                  | `[]`                               |
 | `has_object_attributes` | Есть ли таблица object_attributes (0/1)                 | `1`                                |
 | `object_attributes_count` | Количество записей в таблице object_attributes        | `72663`                            |
 | `has_predefined_items`  | Есть ли таблица predefined_items (0/1)                  | `1`                                |
@@ -752,7 +759,7 @@ LIMIT 30;
 
 **Обратная совместимость:** на v8 индексе все методы возвращают `None` / `{}` через `try/except OperationalError`. `update()` создаёт таблицу через `CREATE TABLE IF NOT EXISTS`.
 
-### form_elements (Level-9, v10+)
+### form_elements (Level-9, v10+; JSON-формы v8unpack — v18+)
 
 Обработчики событий, команды и атрибуты форм 1С. Строится при `build_metadata=True` (по умолчанию). Параллельный сбор через `ThreadPoolExecutor(min(os.cpu_count(), 8))`.
 
@@ -773,6 +780,22 @@ LIMIT 30;
 | `attribute_is_main` | INTEGER    | Основной атрибут формы (1/0)                    | `1`                                                 |
 | `extra_json`        | TEXT       | JSON с query_text (≤512 символов)               | `{"query_text":"ВЫБРАТЬ..."}`                       |
 | `file`              | TEXT       | Относительный путь к XML формы                  | `Documents/Тест/Forms/Ф1/Ext/Form.xml`             |
+
+Для `v8unpack 1.2.9 / obj_version 802` используется закрытая матрица 15
+семейств и локальных версий `5/7/9/12/13`. Обязательны соседние
+`*Form.json`, `*Form.elem.json`, `*Form.id.json`; `*Form.obj.bsl`
+необязателен. Служебная строка `kind=form` сохраняет даже пустую форму.
+Обработчики, команды, реквизиты и пути данных добавляются только по
+подтверждённому контракту. Поэтому пустые коллекции старой обычной формы не
+доказывают отсутствие элементов; проверяйте `v8unpack_form_*` и исходные JSON.
+
+Автономная проверка оракула:
+
+```bash
+python3 -m rlm_tools_bsl.v8unpack_oracle form-manifest verify \
+  tests/fixtures/v8unpack_oracle/forms-802.manifest.json
+./tools/v8unpack_form_probe/run.sh
+```
 
 Индексы: `idx_fe_object` (object_name NOCASE), `idx_fe_object_form` (object_name, form_name), `idx_fe_handler` (handler NOCASE), `idx_fe_kind` (kind).
 

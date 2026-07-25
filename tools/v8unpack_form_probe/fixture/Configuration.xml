@@ -28,6 +28,7 @@
 		<ChildObjects>
 			<Language>Русский</Language>
 			<CommonForm>ПробнаяФорма</CommonForm>
+			<CommonForm>УправляемаяПробнаяФорма</CommonForm>
 		</ChildObjects>
 	</Configuration>
 </MetaDataObject>
