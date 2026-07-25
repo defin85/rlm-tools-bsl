@@ -1714,10 +1714,10 @@ def _git_grep(
 ) -> list[dict] | None:
     """Run a single ``git grep`` over the work tree at *base_path*.
 
-    The one and only place that shells out to ``git grep``. Searches the working
-    tree (tracked files as they are on disk, including uncommitted edits) plus
-    untracked-but-not-ignored files (``--untracked``); ``.gitignore``'d paths are
-    intentionally skipped.
+    The one and only place that shells out to ``git grep``. Searches ordinary
+    files under *base_path* as they are on disk, regardless of tracking state or
+    ignore rules (``--no-index --no-exclude-standard``). Git administration
+    directories are always excluded.
 
     Parameters:
       * *pattern* — literal substring (default) or POSIX ERE when *regex* is True.
@@ -1819,8 +1819,23 @@ def _git_grep(
                 pathspecs.append(f":(glob,exclude)**/{e}/**")  # dir contents, any depth
                 pathspecs.append(f":(glob,exclude)**/{e}")  # file/dir node, any depth
 
+    # ``--no-index`` also sees ignored files, including nested repositories.
+    # Keep their administration data out of every search branch.
+    if not pathspecs:
+        pathspecs = ["."]
+    pathspecs += [":(glob,exclude)**/.git/**", ":(glob,exclude)**/.git"]
+
     output_flag = "-l" if mode == "files" else "-n"
-    grep_cmd = [*cmd, "grep", "-z", "--untracked", "--no-color", "-I", output_flag]
+    grep_cmd = [
+        *cmd,
+        "grep",
+        "--no-index",
+        "--no-exclude-standard",
+        "-z",
+        "--no-color",
+        "-I",
+        output_flag,
+    ]
     if ignore_case:
         grep_cmd.append("-i")
     if mode == "lines" and max_per_file and max_per_file > 0:

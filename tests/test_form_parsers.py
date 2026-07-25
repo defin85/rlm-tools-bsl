@@ -778,6 +778,25 @@ class TestParseFormParity:
             reader.close()
 
 
+def test_parse_form_ignores_glob_diagnostics_before_read(tmp_path):
+    from rlm_tools_bsl.bsl_helpers import make_bsl_helpers
+
+    hint = "[hint: pattern matched directories but no files]"
+
+    def fail_read(path):
+        raise AssertionError(f"diagnostic pseudo-path was read: {path}")
+
+    helpers = make_bsl_helpers(
+        base_path=str(tmp_path),
+        resolve_safe=lambda p: tmp_path / p,
+        read_file_fn=fail_read,
+        grep_fn=lambda *a, **kw: [],
+        glob_files_fn=lambda pattern: [hint],
+        register_git_search="never",
+    )
+    assert helpers["parse_form"]("НесуществующийОбъект") == []
+
+
 class TestParseFormParityEmpty:
     """Parity test for empty form (no handlers/commands/attributes)."""
 

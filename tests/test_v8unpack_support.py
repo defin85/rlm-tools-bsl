@@ -330,6 +330,7 @@ def test_v8unpack_index_integration(v8unpack_source, monkeypatch, capsys):
         assert hierarchy["_meta"]["root_exact"] is True
         movements = reader.get_register_movements("Заказ")
         assert any(row["register_name"] == "Цены" for row in movements)
+        assert bsl["parse_form"]("Заказ", "ФормаДокумента") == []
     finally:
         reader.close()
 

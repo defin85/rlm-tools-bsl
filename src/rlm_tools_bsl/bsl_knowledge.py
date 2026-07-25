@@ -1041,14 +1041,10 @@ def _git_search_routing(registry: dict | None) -> str:
         return ""
     return (
         "\n== FULL-TEXT SEARCH (git detected) ==\n"
-        "Sources are under git → git_search is available: full-text over ALL files,\n"
-        "including raw XML/forms/rights/DCS/queries that name-based helpers and the index never see.\n"
-        "Pick the tool by intent (avoid tool-oscillation):\n"
-        "  - by NAME (object/procedure/attribute) → search / find_module / find_attributes\n"
-        "  - inside a KNOWN module → safe_grep(pattern, name_hint)   (scoped, fast)\n"
-        "  - ANY substring ANYWHERE, incl. XML/forms/query text → git_search(pattern[, path, file_types])\n"
-        "Anti-noise on common tokens: git_search(tok, mode='files') first (which files), or narrow\n"
-        "file_types/path, then drill down. Mind max_results / the {'_truncated': True} sentinel."
+        "git_search scans all files under the selected root, including ignored files and raw XML; .git is excluded.\n"
+        "Names → search/find_module/find_attributes; known module → safe_grep; any substring → git_search.\n"
+        "Ignored secrets/build output: narrow with path/file_types/exclude_path. For common tokens start with\n"
+        "mode='files'; mind max_results and the {'_truncated': True} sentinel."
     )
 
 

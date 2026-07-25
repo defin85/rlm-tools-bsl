@@ -1665,7 +1665,7 @@ def make_bsl_helpers(
         sources are a git work-tree).
 
         Unlike ``safe_grep`` (scoped to a known module / a bounded candidate set)
-        this searches every tracked + untracked-not-ignored file — including raw
+        this searches every ordinary file regardless of tracking/ignore state — including raw
         ``.xml``/``.mdo`` (forms, rights, DCS, ConfigDumpInfo) and procedure
         bodies / string literals / query text that the name-based helpers and the
         SQLite index never see.
@@ -8128,17 +8128,25 @@ def make_bsl_helpers(
             # raw == [] means table exists but no rows — fall through to live
             # path so that empty forms (zero elements) are still discoverable.
 
+        # v8unpack stores form structures as JSON, which this XML fallback does
+        # not parse. Form modules remain navigable through the BSL index.
+        if _dump_format == "v8unpack":
+            return []
+
         # --- Fallback: path-heuristic discovery ---
         from rlm_tools_bsl.bsl_xml_parsers import parse_form_xml as _parse_form_xml
 
         form_files: list[tuple[str, str, str, str]] = []  # (cat, obj, frm, rel_path)
+
+        def _glob_form_files(pattern: str) -> list[str]:
+            return [p for p in glob_files_fn(pattern) if p and not p.startswith("[")]
 
         # Check CommonForms first (object_name = form_name)
         for pattern in (
             f"CommonForms/{object_name}/Form.form",
             f"CommonForms/{object_name}/Ext/Form.xml",
         ):
-            found = glob_files_fn(pattern)
+            found = _glob_form_files(pattern)
             for fp in found:
                 form_files.append(("CommonForms", object_name, object_name, fp))
 
@@ -8152,7 +8160,7 @@ def make_bsl_helpers(
                 f"{cat}/{object_name}/Forms/*/Form.form",
                 f"{cat}/{object_name}/Forms/*/Ext/Form.xml",
             ):
-                found = glob_files_fn(pattern)
+                found = _glob_form_files(pattern)
                 for fp in found:
                     parts = fp.replace("\\", "/").split("/")
                     try:
@@ -8165,7 +8173,7 @@ def make_bsl_helpers(
         # Last resort: broad glob
         if not form_files:
             for pattern in ("**/Forms/*/Form.form", "**/Forms/*/Ext/Form.xml"):
-                found = glob_files_fn(pattern)
+                found = _glob_form_files(pattern)
                 for fp in found:
                     if object_name.lower() in fp.lower():
                         parts = fp.replace("\\", "/").split("/")
@@ -12222,7 +12230,7 @@ def make_bsl_helpers(
             "git_search(pattern, path='', file_types='', regex=False, ignore_case=False, mode='lines', max_results=200, exclude_path='')"
             " -> [{file,line,text}] | [{file}] (mode='files'). FULL-TEXT over ALL files incl. raw XML/forms/queries."
             " exclude_path drops noisy zones (literal names at any depth, e.g. 'Forms,Templates')."
-            " Only available when sources are under git.",
+            " Ignores .gitignore; excludes .git data. Only available when sources are under git.",
             "navigation",
             [
                 "полнотекст",
@@ -12242,7 +12250,8 @@ def make_bsl_helpers(
             "  hits = git_search('VIN', exclude_path='Forms,Templates')  # drop noisy XML zones (any depth)\n"
             "  for h in hits:\n"
             "      print(h.get('file'), h.get('line'), h.get('text', ''))\n"
-            "  # Searches CURRENT on-disk state (incl. uncommitted + new untracked); .gitignore'd skipped.\n"
+            "  # Searches CURRENT on-disk state, including uncommitted, untracked and .gitignore'd files.\n"
+            "  # Ignored secrets/build output are included: narrow with path/file_types/exclude_path.\n"
             "  # Anti-noise on common tokens: start with mode='files' or a narrow file_types/path, then drill down.\n"
             "  # Mind max_results / the {'_truncated': True} sentinel; regex=True is POSIX ERE\n"
             "  #   (end-of-line anchor on CRLF files needs '[[:space:]]*$', not '$').\n"

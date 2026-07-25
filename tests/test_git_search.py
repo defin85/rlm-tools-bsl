@@ -326,7 +326,7 @@ def test_untracked_and_dirty_and_ignored(repo):
     # Unstaged edit to a tracked file → visible without commit.
     mod = repo / "CommonModules" / "МойМодуль" / "Ext" / "Module.bsl"
     mod.write_text(MODULE_BSL + f"\n// {TOK}_UNSTAGED\n", encoding="utf-8")
-    # .gitignore'd file → intentionally NOT searched.
+    # .gitignore'd file → searched because the selected source root is authoritative.
     (root / ".gitignore").write_text("ignored/\n", encoding="utf-8")
     ign = repo / "ignored"
     ign.mkdir()
@@ -335,7 +335,56 @@ def test_untracked_and_dirty_and_ignored(repo):
     text_blob = "\n".join(h["text"] for h in _git_grep(str(repo), TOK))
     assert f"{TOK}_UNTRACKED" in text_blob
     assert f"{TOK}_UNSTAGED" in text_blob
-    assert f"{TOK}_IGNORED" not in text_blob
+    assert f"{TOK}_IGNORED" in text_blob
+
+
+def test_entire_ignored_root_finds_bsl_json_once(tmp_path):
+    _git(tmp_path, "init")
+    _git(tmp_path, "config", "user.name", "Test")
+    _git(tmp_path, "config", "user.email", "test@test.com")
+    (tmp_path / ".gitignore").write_text("source/\n", encoding="utf-8")
+    _git(tmp_path, "add", ".gitignore")
+    _git(tmp_path, "commit", "-m", "ignore source")
+
+    base = tmp_path / "source"
+    (base / "CommonModule" / "Модуль").mkdir(parents=True)
+    (base / "CommonModule" / "Модуль" / "CommonModule.obj.bsl").write_text(TOK, encoding="utf-8")
+    (base / "Document" / "Заказ").mkdir(parents=True)
+    (base / "Document" / "Заказ" / "Document.json").write_text(f'{{"marker":"{TOK}"}}', encoding="utf-8")
+    (base / "tracked.bsl").write_text(TOK, encoding="utf-8")
+    _git(tmp_path, "add", "-f", "source/tracked.bsl")
+
+    files = [h["file"] for h in _git_grep(str(base), TOK, mode="files")]
+    assert sorted(files) == sorted(
+        [
+            "CommonModule/Модуль/CommonModule.obj.bsl",
+            "Document/Заказ/Document.json",
+            "tracked.bsl",
+        ]
+    )
+    assert len(files) == len(set(files))
+
+
+def test_git_grep_finds_hidden_ignored_file(repo):
+    hidden = repo / ".hidden.json"
+    hidden.write_text(f'{{"marker":"{TOK}"}}', encoding="utf-8")
+    (repo.parent / ".gitignore").write_text("src/.hidden.json\n", encoding="utf-8")
+    assert {"file": ".hidden.json"} in _git_grep(str(repo), TOK, mode="files")
+
+
+def test_git_grep_excludes_git_dirs_and_external_symlink(repo, tmp_path):
+    nested_git = repo / "nested" / ".git"
+    nested_git.mkdir(parents=True)
+    (nested_git / "config").write_text(TOK, encoding="utf-8")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.bsl").write_text(TOK, encoding="utf-8")
+    (repo / "outside-link").symlink_to(outside, target_is_directory=True)
+
+    files = {h["file"] for h in _git_grep(str(repo), TOK, mode="files")}
+    assert "nested/.git/config" not in files
+    assert not any("outside-link" in path for path in files)
+    assert _git_grep(str(repo), TOK, literal_files=["nested/.git/config"], mode="files") == []
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +705,34 @@ def test_safe_grep_git_parity_literal(repo, monkeypatch):
     # #7 (v1.28.0): обе ветки отдают POSIX '/'-разделитель (строгий паритет, без '\').
     assert all("\\" not in r["file"] for r in with_git)
     assert all("\\" not in r["file"] for r in without_git)
+
+
+def test_safe_grep_git_parity_includes_ignored_bsl(repo, monkeypatch):
+    ignored = repo / "ignored" / "Module.bsl"
+    ignored.parent.mkdir()
+    ignored.write_text(f"// {TOK}\n", encoding="utf-8")
+    (repo.parent / ".gitignore").write_text("src/ignored/\n", encoding="utf-8")
+
+    with_git = _make_bsl(repo)["safe_grep"](TOK, max_files=50)
+    monkeypatch.setattr(bsl_index_mod, "_git_available", lambda _p: False)
+    without_git = _make_bsl(repo)["safe_grep"](TOK, max_files=50)
+
+    def key(rows):
+        return sorted((r["file"], r["line"], r["text"]) for r in rows)
+
+    assert key(with_git) == key(without_git)
+    assert any(r["file"] == "ignored/Module.bsl" for r in with_git)
+
+
+def test_safe_grep_falls_back_to_python_when_git_grep_fails(repo, monkeypatch):
+    expected = _make_bsl(repo)["safe_grep"](TOK, max_files=50)
+    monkeypatch.setattr(bsl_index_mod, "_git_grep", lambda *a, **k: None)
+    actual = _make_bsl(repo)["safe_grep"](TOK, max_files=50)
+
+    def key(rows):
+        return sorted((r["file"], r["line"], r["text"]) for r in rows)
+
+    assert key(actual) == key(expected)
 
 
 def test_safe_grep_normalizes_file_separators_to_posix(repo):
