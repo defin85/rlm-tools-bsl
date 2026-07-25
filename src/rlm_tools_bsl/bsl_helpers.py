@@ -9719,6 +9719,23 @@ def make_bsl_helpers(
             # NOT count>0 — an empty table is a valid (no-usages) answer.
             "has_metadata_code_usages": builder >= 13,
             "metadata_code_usages_count": stats.get("metadata_code_usages", 0),
+            # v17 v8unpack JSON metadata completeness and identity registries
+            "source_format": stats.get("source_format"),
+            "v8unpack_metadata_status": stats.get("v8unpack_metadata_status"),
+            "v8unpack_metadata_version": stats.get("v8unpack_metadata_version"),
+            "v8unpack_metadata_producer_version": stats.get("v8unpack_metadata_producer_version"),
+            "v8unpack_metadata_object_version": stats.get("v8unpack_metadata_object_version"),
+            "v8unpack_metadata_identity_total": stats.get("v8unpack_metadata_identity_total"),
+            "v8unpack_metadata_identity_indexed": stats.get("v8unpack_metadata_identity_indexed"),
+            "v8unpack_metadata_identity_failed": stats.get("v8unpack_metadata_identity_failed"),
+            "v8unpack_metadata_structural_total": stats.get("v8unpack_metadata_structural_total"),
+            "v8unpack_metadata_structural_indexed": stats.get("v8unpack_metadata_structural_indexed"),
+            "v8unpack_metadata_structural_failed": stats.get("v8unpack_metadata_structural_failed"),
+            "v8unpack_metadata_unsupported_count": stats.get("v8unpack_metadata_unsupported_count"),
+            "v8unpack_metadata_diagnostics_json": stats.get("v8unpack_metadata_diagnostics_json"),
+            "v8unpack_metadata_snapshot_json": stats.get("v8unpack_metadata_snapshot_json"),
+            "metadata_objects_count": stats.get("metadata_objects", 0),
+            "metadata_type_ids_count": stats.get("metadata_type_ids", 0),
             # Git fast-path acceleration availability for incremental update (v1.8.0+)
             "git_accelerated": bool(stats.get("git_accelerated")),
             "git_head_commit": stats.get("git_head_commit"),

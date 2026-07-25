@@ -1,13 +1,13 @@
 # Карта модулей
 
-Актуально для **v1.29.1** (`BUILDER_VERSION = 15`; после обновления с предыдущей версии требуется `index update`).
+Актуально для **v1.29.1** (`BUILDER_VERSION = 17`; после обновления с предыдущей версии требуется `index update`).
 
 Числа-снимки ниже застолблены тестами — если правишь сущность, обнови и число, и тест:
 
 | Что | Значение | Где проверяется |
 |---|---|---|
 | Хелперов в песочнице (`_reg`) | **53** (discovery 8, code 12, xml 5, composite 7, business 15, extension 3, navigation 3) | `tests/test_start_cost_budget.py::test_helper_snapshot_count_locked` |
-| Схема индекса | **v15**, 27 таблиц + FTS5 | `BUILDER_VERSION` в `bsl_index.py` |
+| Схема индекса | **v17**, 29 таблиц + FTS5 | `BUILDER_VERSION` в `bsl_index.py` |
 | Бизнес-домены / алиасы (`rlm_help(topic=…)`) | **16** доменов, **116** алиасов | `_BUSINESS_RECIPES` / `_RECIPE_ALIASES` |
 | Секции стратегии (`rlm_help(section=…)`) | **5** (+ виртуальная `disambiguation`) | `tests/test_strategy_data.py::test_strategy_sections_keys` |
 | Пары DISAMBIGUATION | **11** | `tests/test_strategy_data.py::test_disambiguation_pairs_count` |

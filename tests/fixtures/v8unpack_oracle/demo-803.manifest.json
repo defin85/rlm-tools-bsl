@@ -1,0 +1,608 @@
+{
+  "assertions": {
+    "information_register_characteristic_typeset": {
+      "references": [],
+      "row": [
+        "Характеристики",
+        "InformationRegisters",
+        "Значение",
+        "Значение",
+        "[]",
+        "resource",
+        null
+      ]
+    }
+  },
+  "cf_sha256": "4ab7a1915fcbffb7ca4a4fc2740dc29124c20b7d1453f66c3eb93b47fad10fb4",
+  "commands": [
+    "v8unpack direct-library processes=1 CPUQuota=25%"
+  ],
+  "comparator_version": 1,
+  "coverage": {
+    "builtin_type_uuids": [
+      "e199ca70-93cf-46ce-a54b-6edc88c3a296",
+      "fc01b5df-97fe-449b-83d4-218a090e681e"
+    ],
+    "generated_types": [
+      [
+        "AccumulationRegister",
+        "1",
+        "AccumulationRegisterRecord"
+      ],
+      [
+        "AccumulationRegister",
+        "11",
+        "AccumulationRegisterRecordKey"
+      ],
+      [
+        "AccumulationRegister",
+        "3",
+        "AccumulationRegisterManager"
+      ],
+      [
+        "AccumulationRegister",
+        "5",
+        "AccumulationRegisterSelection"
+      ],
+      [
+        "AccumulationRegister",
+        "7",
+        "AccumulationRegisterList"
+      ],
+      [
+        "AccumulationRegister",
+        "9",
+        "AccumulationRegisterRecordSet"
+      ],
+      [
+        "Catalog",
+        "1",
+        "CatalogObject"
+      ],
+      [
+        "Catalog",
+        "3",
+        "CatalogRef"
+      ],
+      [
+        "Catalog",
+        "34",
+        "CatalogManager"
+      ],
+      [
+        "Catalog",
+        "5",
+        "CatalogSelection"
+      ],
+      [
+        "Catalog",
+        "7",
+        "CatalogList"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "1",
+        "ChartOfCharacteristicTypesObject"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "11",
+        "ChartOfCharacteristicTypesManager"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "3",
+        "ChartOfCharacteristicTypesRef"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "5",
+        "ChartOfCharacteristicTypesSelection"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "7",
+        "ChartOfCharacteristicTypesList"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "9",
+        "Characteristic"
+      ],
+      [
+        "Constant",
+        "2",
+        "ConstantManager"
+      ],
+      [
+        "Constant",
+        "4",
+        "ConstantValueManager"
+      ],
+      [
+        "DataProcessor",
+        "manager_uuid1",
+        "DataProcessorObject"
+      ],
+      [
+        "DataProcessor",
+        "manager_uuid3",
+        "DataProcessorManager"
+      ],
+      [
+        "Document",
+        "1",
+        "DocumentObject"
+      ],
+      [
+        "Document",
+        "26",
+        "DocumentManager"
+      ],
+      [
+        "Document",
+        "3",
+        "DocumentRef"
+      ],
+      [
+        "Document",
+        "5",
+        "DocumentSelection"
+      ],
+      [
+        "Document",
+        "7",
+        "DocumentList"
+      ],
+      [
+        "DocumentJournal",
+        "1",
+        "DocumentJournalList"
+      ],
+      [
+        "DocumentJournal",
+        "10",
+        "DocumentJournalSelection"
+      ],
+      [
+        "DocumentJournal",
+        "8",
+        "DocumentJournalManager"
+      ],
+      [
+        "Enum",
+        "1",
+        "EnumRef"
+      ],
+      [
+        "Enum",
+        "3",
+        "EnumManager"
+      ],
+      [
+        "Enum",
+        "7",
+        "EnumList"
+      ],
+      [
+        "Enum",
+        "8",
+        "EnumList"
+      ],
+      [
+        "ExchangePlan",
+        "1",
+        "ExchangePlanObject"
+      ],
+      [
+        "ExchangePlan",
+        "3",
+        "ExchangePlanRef"
+      ],
+      [
+        "ExchangePlan",
+        "5",
+        "ExchangePlanSelection"
+      ],
+      [
+        "ExchangePlan",
+        "7",
+        "ExchangePlanList"
+      ],
+      [
+        "ExchangePlan",
+        "9",
+        "ExchangePlanManager"
+      ],
+      [
+        "InformationRegister",
+        "1",
+        "InformationRegisterRecord"
+      ],
+      [
+        "InformationRegister",
+        "11",
+        "InformationRegisterRecordKey"
+      ],
+      [
+        "InformationRegister",
+        "13",
+        "InformationRegisterRecordManager"
+      ],
+      [
+        "InformationRegister",
+        "3",
+        "InformationRegisterManager"
+      ],
+      [
+        "InformationRegister",
+        "5",
+        "InformationRegisterSelection"
+      ],
+      [
+        "InformationRegister",
+        "7",
+        "InformationRegisterList"
+      ],
+      [
+        "InformationRegister",
+        "9",
+        "InformationRegisterRecordSet"
+      ],
+      [
+        "Report",
+        "1",
+        "ReportObject"
+      ],
+      [
+        "Report",
+        "12",
+        "ReportManager"
+      ]
+    ],
+    "missing_builtin_type_uuids": [
+      "280f5f0e-9c8a-49cc-bf6d-4d296cc17a63"
+    ],
+    "missing_generated_types": [
+      [
+        "AccountingRegister",
+        "10",
+        "AccountingRegisterSelection"
+      ],
+      [
+        "AccountingRegister",
+        "12",
+        "AccountingRegisterList"
+      ],
+      [
+        "AccountingRegister",
+        "14",
+        "AccountingRegisterManager"
+      ],
+      [
+        "AccountingRegister",
+        "2",
+        "AccountingRegisterRecord"
+      ],
+      [
+        "AccountingRegister",
+        "4",
+        "AccountingRegisterExtDimensions"
+      ],
+      [
+        "AccountingRegister",
+        "6",
+        "AccountingRegisterRecordSet"
+      ],
+      [
+        "AccountingRegister",
+        "8",
+        "AccountingRegisterRecordKey"
+      ],
+      [
+        "ChartOfAccounts",
+        "1",
+        "ChartOfAccountsObject"
+      ],
+      [
+        "ChartOfAccounts",
+        "11",
+        "ChartOfAccountsExtDimensionTypes"
+      ],
+      [
+        "ChartOfAccounts",
+        "13",
+        "ChartOfAccountsExtDimensionTypesRow"
+      ],
+      [
+        "ChartOfAccounts",
+        "3",
+        "ChartOfAccountsRef"
+      ],
+      [
+        "ChartOfAccounts",
+        "5",
+        "ChartOfAccountsSelection"
+      ],
+      [
+        "ChartOfAccounts",
+        "7",
+        "ChartOfAccountsList"
+      ],
+      [
+        "ChartOfAccounts",
+        "9",
+        "ChartOfAccountsManager"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "10",
+        "ChartOfCalculationTypesManager"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "12",
+        "DisplacingCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "14",
+        "DisplacingCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "16",
+        "BaseCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "18",
+        "BaseCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "2",
+        "ChartOfCalculationTypesObject"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "20",
+        "LeadingCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "22",
+        "LeadingCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "4",
+        "ChartOfCalculationTypesRef"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "6",
+        "ChartOfCalculationTypesSelection"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "8",
+        "ChartOfCalculationTypesList"
+      ]
+    ],
+    "structural": [
+      [
+        "AccumulationRegister",
+        "dimension"
+      ],
+      [
+        "AccumulationRegister",
+        "resource"
+      ],
+      [
+        "Catalog",
+        "attribute"
+      ],
+      [
+        "Catalog",
+        "ts_attribute"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "attribute"
+      ],
+      [
+        "Document",
+        "attribute"
+      ],
+      [
+        "Document",
+        "ts_attribute"
+      ],
+      [
+        "InformationRegister",
+        "dimension"
+      ],
+      [
+        "InformationRegister",
+        "resource"
+      ]
+    ],
+    "type_shapes": [
+      "composite",
+      "primitive",
+      "reference"
+    ]
+  },
+  "diagnostics": [
+    {
+      "code": "unsupported_header_facet",
+      "count": 3,
+      "examples": [
+        "InformationRegister/КурсыВалют/InformationRegister.json",
+        "InformationRegister/Характеристики/InformationRegister.json",
+        "InformationRegister/ЦеныТоваров/InformationRegister.json"
+      ],
+      "role": "13134204-f60b-11d5-a3c7-0050bae0a776"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 4,
+      "examples": [
+        "Catalog/Товары/Catalog.json",
+        "Document/РасходТовара/Document.json"
+      ],
+      "role": "3daea016-69b7-4ed4-9453-127911372fe6"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 6,
+      "examples": [
+        "Catalog/Встречи/Catalog.json",
+        "Catalog/ИсходящиеПисьма/Catalog.json",
+        "Catalog/Товары/Catalog.json",
+        "Catalog/ХранилищеВариантовОтчетов/Catalog.json"
+      ],
+      "role": "4fe87c89-9ad4-43f6-9fdb-9dc83b3879c6"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 1,
+      "examples": [
+        "Document/РасходТовара/Document.json"
+      ],
+      "role": "b544fc6a-2ba3-4885-8fb2-cb289fb6d65e"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 2,
+      "examples": [
+        "AccumulationRegister/Взаиморасчеты/AccumulationRegister.json"
+      ],
+      "role": "b64d9a44-1642-11d6-a3c7-0050bae0a776"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 10,
+      "examples": [
+        "Document/Заказ/Document.json",
+        "Document/ОперацияПоУчетуТоваров/Document.json",
+        "Document/Оплата/Document.json",
+        "Document/ПоступлениеДенег/Document.json",
+        "Document/ПриходТовара/Document.json"
+      ],
+      "role": "fb880e93-47d7-4127-9357-a20e69c17545"
+    },
+    {
+      "code": "unsupported_header_facet",
+      "count": 25,
+      "examples": [
+        "Catalog/Валюты/Catalog.json",
+        "Catalog/Встречи/Catalog.json",
+        "Catalog/ВходящиеПисьма/Catalog.json",
+        "Catalog/ИсходящиеПисьма/Catalog.json",
+        "Catalog/Контрагенты/Catalog.json"
+      ],
+      "role": "fdf816d2-1ead-11d5-b975-0050bae0a95d"
+    }
+  ],
+  "forbidden_diagnostics": [],
+  "identity": {
+    "failed": 0,
+    "indexed": 179,
+    "total": 179
+  },
+  "json_input_tree_sha256": "bb1fe9898703397d1dacba05e58c89439f436f2e51faefa00e64349b41ad60ce",
+  "owner_object_versions": [
+    "13",
+    "803"
+  ],
+  "platform_version": "8.3.27.1989",
+  "projections": {
+    "metadata_objects": {
+      "json": {
+        "duplicate": 0,
+        "sha256": "8390057977be95aebf26c19d1af3eae2a83e39f4e30b996fa27de81113509404",
+        "total": 179,
+        "unique": 179
+      },
+      "xml": {
+        "duplicate": 0,
+        "sha256": "8390057977be95aebf26c19d1af3eae2a83e39f4e30b996fa27de81113509404",
+        "total": 179,
+        "unique": 179
+      }
+    },
+    "metadata_references": {
+      "json": {
+        "duplicate": 0,
+        "sha256": "8a7885fd938caf15eba597341ad7378769f0e223e8e1947fd49900dc8b35cdc5",
+        "total": 56,
+        "unique": 56
+      },
+      "xml": {
+        "duplicate": 0,
+        "sha256": "8a7885fd938caf15eba597341ad7378769f0e223e8e1947fd49900dc8b35cdc5",
+        "total": 56,
+        "unique": 56
+      }
+    },
+    "metadata_type_ids": {
+      "json": {
+        "duplicate": 0,
+        "sha256": "a2a36445e2a7159a08052fba8c309bdb17b9a7e88f5f36a42c8f7603e670969a",
+        "total": 375,
+        "unique": 375
+      },
+      "xml": {
+        "duplicate": 0,
+        "sha256": "a2a36445e2a7159a08052fba8c309bdb17b9a7e88f5f36a42c8f7603e670969a",
+        "total": 375,
+        "unique": 375
+      }
+    },
+    "object_attributes": {
+      "json": {
+        "duplicate": 0,
+        "sha256": "5b1dc9e6d1c7a53fc05732a987bd2a398ba13fb8a96b832b8f55188d1030bcbe",
+        "total": 135,
+        "unique": 135
+      },
+      "xml": {
+        "duplicate": 0,
+        "sha256": "5b1dc9e6d1c7a53fc05732a987bd2a398ba13fb8a96b832b8f55188d1030bcbe",
+        "total": 135,
+        "unique": 135
+      }
+    },
+    "object_synonyms": {
+      "json": {
+        "duplicate": 0,
+        "sha256": "d2f7dfc6f66b8c114c6180c7b669f7c42ed565f838ab4e76517345886004bbd0",
+        "total": 36,
+        "unique": 36
+      },
+      "xml": {
+        "duplicate": 0,
+        "sha256": "d2f7dfc6f66b8c114c6180c7b669f7c42ed565f838ab4e76517345886004bbd0",
+        "total": 36,
+        "unique": 36
+      }
+    }
+  },
+  "report_file": "demo-803.report.json",
+  "report_sha256": "5643b7dec36425d460474ad202eb168bd65adb58ce10f7df6a53ec4e1619f6cd",
+  "root_object_version": "803",
+  "schema_version": 1,
+  "status": "partial",
+  "structural": {
+    "failed": 23,
+    "indexed": 13,
+    "total": 36
+  },
+  "unsupported_count": 51,
+  "v8unpack_sha256": "6887e41949ffa21e44fdaf637ff7ad2e9032e7aa9cc15a8287164d741f42df82",
+  "v8unpack_version": "1.2.6",
+  "xml_input_tree_sha256": "071fca4fba6256acf6a424e8f74ff0cd106cfe9a3191101b6dd379936f48fb57",
+  "zero_delta": true
+}

@@ -244,7 +244,7 @@ class TestBuilderFilePaths:
         # Should have: 3 bsl + 3 mdo + 0 xml (Configuration.mdo counts as mdo)
         assert stats["file_paths"] > 0
 
-    def test_builder_version_is_10(self, tmp_path, monkeypatch):
+    def test_builder_version_is_current(self, tmp_path, monkeypatch):
         _make_test_fixture(tmp_path)
         monkeypatch.setenv("RLM_INDEX_DIR", str(tmp_path / "idx"))
 
@@ -254,7 +254,7 @@ class TestBuilderFilePaths:
         conn = sqlite3.connect(str(db_path))
         row = conn.execute("SELECT value FROM index_meta WHERE key='builder_version'").fetchone()
         conn.close()
-        assert row[0] == "15"
+        assert row[0] == "17"
 
     def test_file_paths_count_in_meta(self, tmp_path, monkeypatch):
         _make_test_fixture(tmp_path)
@@ -558,5 +558,5 @@ class TestUpdateFilePaths:
 
 
 class TestVersionBump:
-    def test_builder_version_is_10(self):
-        assert BUILDER_VERSION == 15
+    def test_builder_version_is_current(self):
+        assert BUILDER_VERSION == 17

@@ -141,7 +141,6 @@ def detect_format(base_path: str) -> FormatInfo:
     has_configuration_xml = False
     has_ext_dir = False
     has_mdo_files = False
-    has_v8unpack_bsl_structure = False
     categories_found: set[str] = set()
 
     for root, dirs, files in os.walk(base):
@@ -163,11 +162,6 @@ def detect_format(base_path: str) -> FormatInfo:
         for fname in files:
             if fname.endswith(".bsl"):
                 bsl_file_count += 1
-                if (
-                    (rel.parts and rel.parts[0] in V8UNPACK_CATEGORY_MAP)
-                    or (not rel.parts and fname.casefold() in V8UNPACK_ROOT_MODULES)
-                ):
-                    has_v8unpack_bsl_structure = True
             if fname == "Configuration.xml":
                 has_configuration_xml = True
             if fname.endswith(".mdo"):
@@ -187,7 +181,7 @@ def detect_format(base_path: str) -> FormatInfo:
         primary_format = SourceFormat.CF
     elif has_mdo_files and not has_ext_dir:
         primary_format = SourceFormat.EDT
-    elif has_v8unpack_bsl_structure and _has_v8unpack_marker(base):
+    elif _has_v8unpack_marker(base):
         primary_format = SourceFormat.V8UNPACK
     else:
         primary_format = SourceFormat.UNKNOWN
@@ -253,11 +247,7 @@ def parse_bsl_path(file_path: str, base_path: str) -> BslFileInfo:
     # We already extracted object_name from the part after category; keep it as-is.
 
     # Extract form_name: part after "Forms" in the path
-    if (
-        is_v8unpack
-        and category == "CommonForms"
-        and filename_casefold == "commonform.obj.bsl"
-    ):
+    if is_v8unpack and category == "CommonForms" and filename_casefold == "commonform.obj.bsl":
         form_name = object_name
     elif is_v8unpack:
         for i, part in enumerate(parts[2:-1], start=2):
@@ -283,11 +273,7 @@ def parse_bsl_path(file_path: str, base_path: str) -> BslFileInfo:
                 form_name = candidate
 
     # Extract command_name: part after "Commands" in the path
-    if (
-        is_v8unpack
-        and category == "CommonCommands"
-        and filename_casefold == "commoncommand.obj.bsl"
-    ):
+    if is_v8unpack and category == "CommonCommands" and filename_casefold == "commoncommand.obj.bsl":
         command_name = object_name
     elif is_v8unpack:
         for i, part in enumerate(parts[2:-1], start=2):

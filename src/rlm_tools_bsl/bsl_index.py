@@ -25,7 +25,12 @@ from typing import NamedTuple
 
 from rlm_tools_bsl.bsl_knowledge import BSL_PATTERNS, _merge_proc_continuations
 from rlm_tools_bsl.cache import _paths_hash
-from rlm_tools_bsl.format_detector import BslFileInfo, parse_bsl_path
+from rlm_tools_bsl.format_detector import BslFileInfo, SourceFormat, detect_format, parse_bsl_path
+from rlm_tools_bsl.v8unpack_metadata import (
+    classify_v8unpack_json_path,
+    collect_v8unpack_metadata,
+    read_v8unpack_json,
+)
 from rlm_tools_bsl.bsl_xml_parsers import (
     _CODE_MANAGER_COLLECTIONS,
     _CODE_QUERY_COLLECTIONS,
@@ -35,7 +40,7 @@ from rlm_tools_bsl.bsl_xml_parsers import (
 
 logger = logging.getLogger(__name__)
 
-BUILDER_VERSION = 15
+BUILDER_VERSION = 17
 
 
 _active_locks: dict[str, "_BuildLock"] = {}
@@ -709,6 +714,26 @@ CREATE TABLE IF NOT EXISTS object_synonyms (
 );
 CREATE INDEX IF NOT EXISTS idx_synonyms_object ON object_synonyms(object_name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_synonyms_synonym ON object_synonyms(synonym COLLATE NOCASE);
+
+-- v8unpack metadata identity registries (internal)
+CREATE TABLE IF NOT EXISTS metadata_objects (
+    category TEXT NOT NULL,
+    object_name TEXT NOT NULL,
+    object_uuid TEXT NOT NULL,
+    source_file TEXT NOT NULL,
+    PRIMARY KEY (category, object_name)
+);
+CREATE INDEX IF NOT EXISTS idx_metadata_objects_uuid ON metadata_objects(object_uuid);
+
+CREATE TABLE IF NOT EXISTS metadata_type_ids (
+    id INTEGER PRIMARY KEY,
+    type_uuid TEXT NOT NULL,
+    canonical_ref TEXT NOT NULL,
+    type_form TEXT NOT NULL,
+    source_file TEXT NOT NULL,
+    UNIQUE (type_uuid, canonical_ref, type_form)
+);
+CREATE INDEX IF NOT EXISTS idx_metadata_type_ids_uuid ON metadata_type_ids(type_uuid);
 
 -- Level-7: regions and module headers (semantic context)
 CREATE TABLE IF NOT EXISTS regions (
@@ -2537,8 +2562,6 @@ def _parse_configuration_meta(base_path: str) -> dict[str, str]:
     """
     import xml.etree.ElementTree as ET
 
-    from rlm_tools_bsl.format_detector import SourceFormat, detect_format
-
     base = Path(base_path)
     fmt_info = detect_format(base_path)
     # detect_format returns FormatInfo; extract the primary_format enum value
@@ -2556,6 +2579,23 @@ def _parse_configuration_meta(base_path: str) -> dict[str, str]:
 
     # Store has_configuration_xml flag
     meta["has_configuration_xml"] = "1" if (base / "Configuration.xml").is_file() else "0"
+
+    if fmt_info.primary_format is SourceFormat.V8UNPACK:
+        try:
+            descriptor = read_v8unpack_json(base, "Configuration.json")
+        except (OSError, ValueError, json.JSONDecodeError):
+            descriptor = {}
+        name2 = descriptor.get("name2")
+        meta.update(
+            {
+                "config_name": str(descriptor.get("name") or ""),
+                "config_synonym": (
+                    str(name2.get("ru") or "").replace('""', '"').strip() if isinstance(name2, dict) else ""
+                ),
+                "config_role": "base",
+            }
+        )
+        return meta
 
     # Try CF format: Configuration.xml in root
     cf_xml = base / "Configuration.xml"
@@ -2680,6 +2720,7 @@ def _collect_metadata_tables(
     collect_defined_types: bool = True,
     collect_pvh_types: bool = True,
     collect_metadata_refs_categories: set[str] | None = None,
+    read_paths: set[str] | None = None,
 ) -> dict[str, list[tuple]]:
     """Scan and parse metadata XMLs selectively.
 
@@ -2816,9 +2857,12 @@ def _collect_metadata_tables(
 
     def _read(fp: Path) -> str | None:
         try:
-            return fp.read_text(encoding="utf-8-sig", errors="replace")
+            content = fp.read_text(encoding="utf-8-sig", errors="replace")
         except OSError:
             return None
+        if read_paths is not None:
+            read_paths.add(fp.relative_to(base).as_posix())
+        return content
 
     def _glob_xml(category: str) -> list[Path]:
         files: list[Path] = []
@@ -3089,6 +3133,58 @@ def _collect_metadata_tables(
     # Determine which attribute categories to scan
     _active_attr_cats = set(_ATTR_CATEGORIES) if collect_attrs_categories is None else collect_attrs_categories
 
+    def _emit_attribute_file(category: str, obj_name: str, xml_path: Path) -> None:
+        content = _read(xml_path)
+        if not content:
+            return
+        try:
+            parsed = parse_metadata_xml(content)
+        except Exception:
+            return
+        if not parsed:
+            return
+        rel = xml_path.relative_to(base).as_posix()
+        _emit_refs(
+            parsed.get("references", []),
+            obj_name,
+            category,
+            rel,
+            content_lines=content.splitlines(),
+        )
+        for source_key, attr_kind in (
+            ("attributes", "attribute"),
+            ("dimensions", "dimension"),
+            ("resources", "resource"),
+        ):
+            for attr in parsed.get(source_key, []):
+                result["object_attributes"].append(
+                    (
+                        obj_name,
+                        category,
+                        attr.get("name", ""),
+                        attr.get("synonym", ""),
+                        normalize_type_string(attr.get("type", "")),
+                        attr_kind,
+                        None,
+                        rel,
+                    )
+                )
+        for ts in parsed.get("tabular_sections", []):
+            ts_name = ts.get("name", "")
+            for attr in ts.get("attributes", []):
+                result["object_attributes"].append(
+                    (
+                        obj_name,
+                        category,
+                        attr.get("name", ""),
+                        attr.get("synonym", ""),
+                        normalize_type_string(attr.get("type", "")),
+                        "ts_attribute",
+                        ts_name,
+                        rel,
+                    )
+                )
+
     for category in _ATTR_CATEGORIES:
         if category not in _active_attr_cats:
             continue
@@ -3103,86 +3199,12 @@ def _collect_metadata_tables(
             xml_path = _find_metadata_xml(obj_dir, category)
             if xml_path is None:
                 continue
+            _emit_attribute_file(category, obj_name, xml_path)
 
-            content = _read(xml_path)
-            if not content:
-                continue
-            try:
-                parsed = parse_metadata_xml(content)
-            except Exception:
-                continue
-            if not parsed:
-                continue
-
-            rel = xml_path.relative_to(base).as_posix()
-
-            # Emit metadata_references from parser (attributes, owners, based_on, forms, etc.)
-            # Pass content lines so attribute-level refs get an approximate line number.
-            _emit_refs(
-                parsed.get("references", []),
-                obj_name,
-                category,
-                rel,
-                content_lines=content.splitlines(),
-            )
-
-            for attr in parsed.get("attributes", []):
-                result["object_attributes"].append(
-                    (
-                        obj_name,
-                        category,
-                        attr.get("name", ""),
-                        attr.get("synonym", ""),
-                        normalize_type_string(attr.get("type", "")),
-                        "attribute",
-                        None,
-                        rel,
-                    )
-                )
-
-            for dim in parsed.get("dimensions", []):
-                result["object_attributes"].append(
-                    (
-                        obj_name,
-                        category,
-                        dim.get("name", ""),
-                        dim.get("synonym", ""),
-                        normalize_type_string(dim.get("type", "")),
-                        "dimension",
-                        None,
-                        rel,
-                    )
-                )
-
-            for res in parsed.get("resources", []):
-                result["object_attributes"].append(
-                    (
-                        obj_name,
-                        category,
-                        res.get("name", ""),
-                        res.get("synonym", ""),
-                        normalize_type_string(res.get("type", "")),
-                        "resource",
-                        None,
-                        rel,
-                    )
-                )
-
-            for ts in parsed.get("tabular_sections", []):
-                ts_name = ts.get("name", "")
-                for ts_attr in ts.get("attributes", []):
-                    result["object_attributes"].append(
-                        (
-                            obj_name,
-                            category,
-                            ts_attr.get("name", ""),
-                            ts_attr.get("synonym", ""),
-                            normalize_type_string(ts_attr.get("type", "")),
-                            "ts_attribute",
-                            ts_name,
-                            rel,
-                        )
-                    )
+        # CF/ibcmd also emits objects without child files as sibling-only XML.
+        for xml_path in sorted(cat_dir.glob("*.xml")):
+            if not (cat_dir / xml_path.stem).is_dir():
+                _emit_attribute_file(category, xml_path.stem, xml_path)
 
     # --- Level-11: Predefined items (ПВХ, справочники, планы счетов) ---
     _active_predef_cats = (
@@ -4771,10 +4793,10 @@ def _collect_file_paths(base_path: str) -> list[tuple]:
             if fname.startswith("."):
                 continue
             ext = os.path.splitext(fname)[1].lower()
-            if ext not in _FILE_NAV_EXTENSIONS:
+            full_path = Path(dirpath) / fname
+            if ext not in _FILE_NAV_EXTENSIONS and classify_v8unpack_json_path(base, full_path) is None:
                 continue
 
-            full_path = Path(dirpath) / fname
             try:
                 st = full_path.stat()
             except OSError:
@@ -4803,6 +4825,94 @@ def _insert_file_paths(conn: sqlite3.Connection, rows: list[tuple]) -> None:
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
+
+
+def _refresh_v8unpack_metadata(
+    conn: sqlite3.Connection,
+    base_path: str,
+    *,
+    build_metadata: bool,
+    build_synonyms: bool,
+) -> object | None:
+    """Atomically replace the v8unpack JSON layer without touching BSL rows."""
+    current_format = detect_format(base_path).primary_format
+    previous = conn.execute("SELECT value FROM index_meta WHERE key='source_format'").fetchone()
+    was_v8unpack = previous is not None and previous[0] == SourceFormat.V8UNPACK.value
+    conn.execute("SAVEPOINT v8unpack_metadata_refresh")
+    try:
+        conn.execute("DELETE FROM metadata_objects")
+        conn.execute("DELETE FROM metadata_type_ids")
+        conn.execute("DELETE FROM object_attributes WHERE source_file LIKE '%.json'")
+        conn.execute("DELETE FROM object_synonyms WHERE file LIKE '%.json'")
+        conn.execute("DELETE FROM metadata_references WHERE path LIKE '%.json'")
+        conn.execute("DELETE FROM index_meta WHERE key LIKE 'v8unpack_metadata_%'")
+        recovery_pending = was_v8unpack and current_format is SourceFormat.UNKNOWN
+
+        if build_metadata and current_format is SourceFormat.V8UNPACK:
+            result = collect_v8unpack_metadata(base_path, build_synonyms=build_synonyms)
+            conn.executemany(
+                "INSERT INTO metadata_objects (category, object_name, object_uuid, source_file) VALUES (?, ?, ?, ?)",
+                result.metadata_objects,
+            )
+            conn.executemany(
+                "INSERT INTO metadata_type_ids (type_uuid, canonical_ref, type_form, source_file) VALUES (?, ?, ?, ?)",
+                result.metadata_type_ids,
+            )
+            conn.executemany(
+                "INSERT INTO object_attributes "
+                "(object_name, category, attr_name, attr_synonym, attr_type, attr_kind, ts_name, source_file) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                result.object_attributes,
+            )
+            if build_synonyms:
+                conn.executemany(
+                    "INSERT INTO object_synonyms (object_name, category, synonym, file) VALUES (?, ?, ?, ?)",
+                    result.object_synonyms,
+                )
+            conn.executemany(
+                "INSERT INTO metadata_references "
+                "(source_object, source_category, ref_object, ref_kind, used_in, path, line) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                result.metadata_references,
+            )
+            meta = result.index_meta()
+        else:
+            result = None
+            meta = {
+                "v8unpack_metadata_status": (
+                    "disabled" if not build_metadata else "unsupported" if recovery_pending else "not_applicable"
+                ),
+                "v8unpack_metadata_identity_total": "0",
+                "v8unpack_metadata_identity_indexed": "0",
+                "v8unpack_metadata_identity_failed": "0",
+                "v8unpack_metadata_structural_total": "0",
+                "v8unpack_metadata_structural_indexed": "0",
+                "v8unpack_metadata_structural_failed": "0",
+                "v8unpack_metadata_unsupported_count": "0",
+            }
+        if current_format is SourceFormat.V8UNPACK or recovery_pending:
+            root_file = Path(base_path) / "Configuration.json"
+            try:
+                root_stat = root_file.stat()
+            except OSError:
+                root_stat = None
+            meta.update(
+                {
+                    "v8unpack_metadata_last_root_size": str(root_stat.st_size) if root_stat else "",
+                    "v8unpack_metadata_last_root_mtime_ns": str(root_stat.st_mtime_ns) if root_stat else "",
+                    "v8unpack_metadata_recovery_pending": "1" if recovery_pending else "0",
+                }
+            )
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            meta.items(),
+        )
+        conn.execute("RELEASE SAVEPOINT v8unpack_metadata_refresh")
+        return result
+    except Exception:
+        conn.execute("ROLLBACK TO SAVEPOINT v8unpack_metadata_refresh")
+        conn.execute("RELEASE SAVEPOINT v8unpack_metadata_refresh")
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -5293,6 +5403,7 @@ def _collect_object_synonyms(
     base_path: str,
     *,
     categories: frozenset[str] | None = None,
+    read_paths: set[str] | None = None,
 ) -> list[tuple[str, str, str, str]]:
     """Collect object synonyms from metadata categories.
 
@@ -5317,6 +5428,8 @@ def _collect_object_synonyms(
             content = fp.read_text(encoding="utf-8-sig", errors="replace")
         except OSError:
             return None
+        if read_paths is not None:
+            read_paths.add(rel)
         try:
             parsed = parse_metadata_xml(content)
         except Exception as exc:
@@ -5976,6 +6089,13 @@ class IndexBuilder:
             # file_paths + meta only (codex round 8: must NOT skip the cleanup, else stale
             # modules/methods/calls would survive the now-unlink-free rebuild).
             self._begin_inplace_rebuild(conn, opts)
+            config_meta = _parse_configuration_meta(base_path)
+            _refresh_v8unpack_metadata(
+                conn,
+                base_path,
+                build_metadata=build_metadata,
+                build_synonyms=build_synonyms,
+            )
             fp_rows = _collect_file_paths(base_path)
             _insert_file_paths(conn, fp_rows)
             self._write_meta(
@@ -5985,6 +6105,7 @@ class IndexBuilder:
                 _paths_hash([]),  # round 21: NOT "" — else check_index_strict false STALE on a valid empty index
                 build_calls,
                 build_metadata,
+                config_meta=config_meta,
                 build_fts=build_fts,
                 file_paths_count=len(fp_rows),
                 build_synonyms=build_synonyms,
@@ -6058,11 +6179,19 @@ class IndexBuilder:
 
         # Level-1 metadata: Configuration XML
         config_meta = _parse_configuration_meta(base_path)
+        is_v8unpack = config_meta.get("source_format") == SourceFormat.V8UNPACK.value
 
         # Level-2 metadata: ES, SJ, FO
-        if build_metadata:
+        md_tables: dict[str, list] = {}
+        if build_metadata and not is_v8unpack:
             md_tables = _collect_metadata_tables(base_path)
             _insert_metadata_tables(conn, md_tables)
+        _refresh_v8unpack_metadata(
+            conn,
+            base_path,
+            build_metadata=build_metadata,
+            build_synonyms=build_synonyms,
+        )
 
         # Level-3: register movements (in-band, already extracted)
         all_movements: list[tuple[str, str, str, str]] = []
@@ -6116,7 +6245,7 @@ class IndexBuilder:
             )
 
         # Level-6: object synonyms (business-name search)
-        if build_synonyms:
+        if build_synonyms and not is_v8unpack:
             synonyms = _collect_object_synonyms(base_path)
             if synonyms:
                 conn.executemany(
@@ -6347,6 +6476,29 @@ class IndexBuilder:
                 "git_fast_path": False,
                 "rebuild_reason": f"schema upgrade v{old_version}->{BUILDER_VERSION}",
             }
+
+        # JSON metadata is small relative to BSL parsing; replacing its whitelisted
+        # layer on every update keeps git and non-git paths identical and atomic.
+        previous_format = conn.execute("SELECT value FROM index_meta WHERE key='source_format'").fetchone()
+        was_v8unpack = previous_format is not None and previous_format["value"] == SourceFormat.V8UNPACK.value
+        _refresh_v8unpack_metadata(
+            conn,
+            base_path,
+            build_metadata=has_metadata,
+            build_synonyms=has_synonyms,
+        )
+        if detect_format(base_path).primary_format is SourceFormat.V8UNPACK or was_v8unpack:
+            file_paths_rows = _collect_file_paths(base_path)
+            _insert_file_paths(conn, file_paths_rows)
+            conn.execute(
+                "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+                ("file_paths_count", str(len(file_paths_rows))),
+            )
+        config_meta = _parse_configuration_meta(base_path)
+        conn.executemany(
+            "INSERT OR REPLACE INTO index_meta (key, value) VALUES (?, ?)",
+            config_meta.items(),
+        )
 
         # Self-heal perf indexes (idx_calls_callee_short, idx_meth_module) on EVERY
         # current-version update (no-op, metadata-only, git-fast, full-scan all pass this
@@ -6691,7 +6843,8 @@ class IndexBuilder:
         )
 
         # Refresh Level-2 metadata if originally built with metadata
-        if has_metadata:
+        is_v8unpack = detect_format(base_path).primary_format is SourceFormat.V8UNPACK
+        if has_metadata and not is_v8unpack:
             # Ensure tables exist (in case of schema upgrade)
             conn.executescript(
                 "CREATE TABLE IF NOT EXISTS event_subscriptions ("
@@ -6795,7 +6948,7 @@ class IndexBuilder:
             )
 
         # Level-6: object synonyms (schema upgrade v6→v7, full refresh)
-        if has_synonyms:
+        if has_synonyms and not is_v8unpack:
             conn.executescript(
                 "CREATE TABLE IF NOT EXISTS object_synonyms ("
                 "id INTEGER PRIMARY KEY, object_name TEXT NOT NULL, "
@@ -7902,6 +8055,8 @@ class IndexBuilder:
         if config_meta:
             for key, value in config_meta.items():
                 meta_entries.append((key, value))
+            if config_meta.get("source_format") != SourceFormat.V8UNPACK.value:
+                meta_entries.append(("v8unpack_metadata_status", "not_applicable"))
 
         # Detected custom prefixes
         if detected_prefixes:
@@ -8065,6 +8220,20 @@ def _zero_stats() -> dict:
         "has_fts": False,
         "bsl_count": None,
         "builder_version": None,
+        "v8unpack_metadata_status": None,
+        "v8unpack_metadata_version": None,
+        "v8unpack_metadata_producer_version": None,
+        "v8unpack_metadata_object_version": None,
+        "v8unpack_metadata_identity_total": None,
+        "v8unpack_metadata_identity_indexed": None,
+        "v8unpack_metadata_identity_failed": None,
+        "v8unpack_metadata_structural_total": None,
+        "v8unpack_metadata_structural_indexed": None,
+        "v8unpack_metadata_structural_failed": None,
+        "v8unpack_metadata_unsupported_count": None,
+        "v8unpack_metadata_diagnostics_json": None,
+        "v8unpack_metadata_snapshot_json": None,
+        "v8unpack_metadata_recovery_pending": None,
         "event_subscriptions": 0,
         "scheduled_jobs": 0,
         "functional_options": 0,
@@ -8088,6 +8257,8 @@ def _zero_stats() -> dict:
         "defined_types": 0,
         "characteristic_types": 0,
         "metadata_code_usages": 0,
+        "metadata_objects": 0,
+        "metadata_type_ids": 0,
         "git_head_commit": None,
         "git_accelerated": False,
     }
@@ -9436,6 +9607,20 @@ class IndexReader:
                 "has_fts",
                 "bsl_count",
                 "builder_version",
+                "v8unpack_metadata_status",
+                "v8unpack_metadata_version",
+                "v8unpack_metadata_producer_version",
+                "v8unpack_metadata_object_version",
+                "v8unpack_metadata_identity_total",
+                "v8unpack_metadata_identity_indexed",
+                "v8unpack_metadata_identity_failed",
+                "v8unpack_metadata_structural_total",
+                "v8unpack_metadata_structural_indexed",
+                "v8unpack_metadata_structural_failed",
+                "v8unpack_metadata_unsupported_count",
+                "v8unpack_metadata_diagnostics_json",
+                "v8unpack_metadata_snapshot_json",
+                "v8unpack_metadata_recovery_pending",
             ):
                 meta_row = self._conn.execute("SELECT value FROM index_meta WHERE key = ?", (key,)).fetchone()
                 stats[key] = meta_row["value"] if meta_row else None
@@ -9447,6 +9632,19 @@ class IndexReader:
             # Convert bsl_count to int
             if stats.get("bsl_count") is not None:
                 stats["bsl_count"] = int(stats["bsl_count"])
+            for key in (
+                "v8unpack_metadata_identity_total",
+                "v8unpack_metadata_identity_indexed",
+                "v8unpack_metadata_identity_failed",
+                "v8unpack_metadata_structural_total",
+                "v8unpack_metadata_structural_indexed",
+                "v8unpack_metadata_structural_failed",
+                "v8unpack_metadata_unsupported_count",
+            ):
+                if stats.get(key) is not None:
+                    stats[key] = int(stats[key])
+            if stats.get("v8unpack_metadata_recovery_pending") is not None:
+                stats["v8unpack_metadata_recovery_pending"] = stats["v8unpack_metadata_recovery_pending"] == "1"
 
             # Level-2 metadata counts
             for table in ("event_subscriptions", "scheduled_jobs", "functional_options"):
@@ -9523,6 +9721,8 @@ class IndexReader:
                 "defined_types",
                 "characteristic_types",
                 "metadata_code_usages",
+                "metadata_objects",
+                "metadata_type_ids",
             ):
                 try:
                     row = self._conn.execute(f"SELECT COUNT(*) AS cnt FROM {table}").fetchone()  # noqa: S608

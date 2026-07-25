@@ -18,3 +18,4 @@ docker-compose.yml
 evals/ab_results/
 docs/plans/
 tmp/
+.artifacts/

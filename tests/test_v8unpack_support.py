@@ -22,15 +22,9 @@ def v8unpack_source(tmp_path):
     )
     files = {
         "CommonModule/Общий/CommonModule.obj.bsl": "Процедура Вызвать() Экспорт\nКонецПроцедуры",
-        "Catalog/Товары/Catalog.obj.bsl": (
-            "Процедура ПередЗаписью(Отказ)\n"
-            "    Общий.Вызвать();\n"
-            "КонецПроцедуры"
-        ),
+        "Catalog/Товары/Catalog.obj.bsl": ("Процедура ПередЗаписью(Отказ)\n    Общий.Вызвать();\nКонецПроцедуры"),
         "Document/Заказ/Document.obj.bsl": (
-            "Процедура ОбработкаПроведения(Отказ, Режим)\n"
-            "    Движения.Цены.Записать();\n"
-            "КонецПроцедуры"
+            "Процедура ОбработкаПроведения(Отказ, Режим)\n    Движения.Цены.Записать();\nКонецПроцедуры"
         ),
         "Document/Заказ/Document.mgr.bsl": "Функция Найти()\nКонецФункции",
         "InformationRegister/Цены/InformationRegister.obj.bsl": "Процедура ПриЗаписи(Отказ)\nКонецПроцедуры",
@@ -301,9 +295,7 @@ def test_v8unpack_index_integration(v8unpack_source, monkeypatch, capsys):
         conn = sqlite3.connect(db_path)
         rows = {
             row[0]: row[1:]
-            for row in conn.execute(
-                "SELECT rel_path, category, object_name, module_type, form_name FROM modules"
-            )
+            for row in conn.execute("SELECT rel_path, category, object_name, module_type, form_name FROM modules")
         }
         conn.close()
         assert rows["CommonModule/Общий/CommonModule.obj.bsl"][:3] == (
@@ -316,9 +308,7 @@ def test_v8unpack_index_integration(v8unpack_source, monkeypatch, capsys):
             "Цены",
             "RecordSetModule",
         )
-        assert rows["Document/Заказ/DocumentForm/ФормаДокумента/DocumentForm.obj.bsl"][3] == (
-            "ФормаДокумента"
-        )
+        assert rows["Document/Заказ/DocumentForm/ФормаДокумента/DocumentForm.obj.bsl"][3] == ("ФормаДокумента")
         assert rows["Catalog/Товары/CatalogCommand/Печать/CatalogCommand.obj.bsl"][:3] == (
             "Catalogs",
             "Товары",
@@ -326,6 +316,12 @@ def test_v8unpack_index_integration(v8unpack_source, monkeypatch, capsys):
         )
 
         bsl = _make_bsl_helpers(v8unpack_source, reader)
+        info = bsl["get_index_info"]()
+        assert info["v8unpack_metadata_status"] == "disabled"
+        assert info["v8unpack_metadata_producer_version"] is None
+        assert info["v8unpack_metadata_object_version"] is None
+        assert info["v8unpack_metadata_snapshot_json"] is None
+        assert info["v8unpack_metadata_identity_total"] == 0
         definition = bsl["find_definition"]("Вызвать", "Общий")
         assert definition["definitions"][0]["file"] == "CommonModule/Общий/CommonModule.obj.bsl"
         callers = reader.get_callers("Вызвать")
@@ -367,9 +363,7 @@ def test_update_rebuilds_previous_index_coordinates(v8unpack_source, monkeypatch
         "SELECT category, object_name, module_type FROM modules "
         "WHERE rel_path='CommonModule/Общий/CommonModule.obj.bsl'"
     ).fetchone()
-    source_format = conn.execute(
-        "SELECT value FROM index_meta WHERE key='source_format'"
-    ).fetchone()[0]
+    source_format = conn.execute("SELECT value FROM index_meta WHERE key='source_format'").fetchone()[0]
     conn.close()
     assert row == ("CommonModules", "Общий", "Module")
     assert source_format == "v8unpack"

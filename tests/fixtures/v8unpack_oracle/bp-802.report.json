@@ -1,0 +1,553 @@
+{
+  "assertions": {},
+  "comparator_version": 1,
+  "content_sha256": "a2b46353be6590521fc83dc755467be50e36b240434abe28b82ba6222eafa963",
+  "coverage": {
+    "builtin_type_uuids": [
+      "0a52f9de-73ea-4507-81e8-66217bead73a",
+      "18906d1b-33c0-4872-82f3-ce6f95b00d18",
+      "214fa4d8-6ba4-4748-a5e1-6332b5887780",
+      "280f5f0e-9c8a-49cc-bf6d-4d296cc17a63",
+      "38bfd075-3e63-4aaa-a93e-94521380d579",
+      "593cd424-0877-470d-91f9-b90a982059b4",
+      "6291e9b3-8df5-44e1-b6b2-d9fe008016c0",
+      "99892482-ed55-4fb5-a7f7-20888820a758",
+      "ac606d60-0209-4159-8e4c-794bc091ce38",
+      "e199ca70-93cf-46ce-a54b-6edc88c3a296",
+      "e61ef7b8-f3e1-4f4b-8ac7-676e90524997",
+      "f04256af-e4b4-4d0a-8a65-baa878d4c6de",
+      "fc01b5df-97fe-449b-83d4-218a090e681e",
+      "ffbe8ea3-ce5f-4118-842e-03a6fafc1d42"
+    ],
+    "generated_types": [
+      [
+        "AccountingRegister",
+        "1",
+        "AccountingRegisterRecord"
+      ],
+      [
+        "AccountingRegister",
+        "11",
+        "AccountingRegisterList"
+      ],
+      [
+        "AccountingRegister",
+        "13",
+        "AccountingRegisterManager"
+      ],
+      [
+        "AccountingRegister",
+        "3",
+        "AccountingRegisterExtDimensions"
+      ],
+      [
+        "AccountingRegister",
+        "5",
+        "AccountingRegisterRecordSet"
+      ],
+      [
+        "AccountingRegister",
+        "7",
+        "AccountingRegisterRecordKey"
+      ],
+      [
+        "AccountingRegister",
+        "9",
+        "AccountingRegisterSelection"
+      ],
+      [
+        "AccumulationRegister",
+        "1",
+        "AccumulationRegisterRecord"
+      ],
+      [
+        "AccumulationRegister",
+        "11",
+        "AccumulationRegisterRecordKey"
+      ],
+      [
+        "AccumulationRegister",
+        "3",
+        "AccumulationRegisterManager"
+      ],
+      [
+        "AccumulationRegister",
+        "5",
+        "AccumulationRegisterSelection"
+      ],
+      [
+        "AccumulationRegister",
+        "7",
+        "AccumulationRegisterList"
+      ],
+      [
+        "AccumulationRegister",
+        "9",
+        "AccumulationRegisterRecordSet"
+      ],
+      [
+        "Catalog",
+        "1",
+        "CatalogObject"
+      ],
+      [
+        "Catalog",
+        "3",
+        "CatalogRef"
+      ],
+      [
+        "Catalog",
+        "34",
+        "CatalogManager"
+      ],
+      [
+        "Catalog",
+        "5",
+        "CatalogSelection"
+      ],
+      [
+        "Catalog",
+        "7",
+        "CatalogList"
+      ],
+      [
+        "ChartOfAccounts",
+        "1",
+        "ChartOfAccountsObject"
+      ],
+      [
+        "ChartOfAccounts",
+        "11",
+        "ChartOfAccountsExtDimensionTypes"
+      ],
+      [
+        "ChartOfAccounts",
+        "13",
+        "ChartOfAccountsExtDimensionTypesRow"
+      ],
+      [
+        "ChartOfAccounts",
+        "3",
+        "ChartOfAccountsRef"
+      ],
+      [
+        "ChartOfAccounts",
+        "5",
+        "ChartOfAccountsSelection"
+      ],
+      [
+        "ChartOfAccounts",
+        "7",
+        "ChartOfAccountsList"
+      ],
+      [
+        "ChartOfAccounts",
+        "9",
+        "ChartOfAccountsManager"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "10",
+        "ChartOfCalculationTypesManager"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "12",
+        "DisplacingCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "14",
+        "DisplacingCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "16",
+        "BaseCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "18",
+        "BaseCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "2",
+        "ChartOfCalculationTypesObject"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "20",
+        "LeadingCalculationTypes"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "22",
+        "LeadingCalculationTypesRow"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "4",
+        "ChartOfCalculationTypesRef"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "6",
+        "ChartOfCalculationTypesSelection"
+      ],
+      [
+        "ChartOfCalculationTypes",
+        "8",
+        "ChartOfCalculationTypesList"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "1",
+        "ChartOfCharacteristicTypesObject"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "11",
+        "ChartOfCharacteristicTypesManager"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "3",
+        "ChartOfCharacteristicTypesRef"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "5",
+        "ChartOfCharacteristicTypesSelection"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "7",
+        "ChartOfCharacteristicTypesList"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "9",
+        "Characteristic"
+      ],
+      [
+        "Constant",
+        "13",
+        "ConstantValueKey"
+      ],
+      [
+        "Constant",
+        "2",
+        "ConstantManager"
+      ],
+      [
+        "Constant",
+        "4",
+        "ConstantValueManager"
+      ],
+      [
+        "DataProcessor",
+        "1",
+        "DataProcessorObject"
+      ],
+      [
+        "DataProcessor",
+        "7",
+        "DataProcessorManager"
+      ],
+      [
+        "Document",
+        "1",
+        "DocumentObject"
+      ],
+      [
+        "Document",
+        "26",
+        "DocumentManager"
+      ],
+      [
+        "Document",
+        "3",
+        "DocumentRef"
+      ],
+      [
+        "Document",
+        "5",
+        "DocumentSelection"
+      ],
+      [
+        "Document",
+        "7",
+        "DocumentList"
+      ],
+      [
+        "DocumentJournal",
+        "1",
+        "DocumentJournalList"
+      ],
+      [
+        "DocumentJournal",
+        "10",
+        "DocumentJournalSelection"
+      ],
+      [
+        "DocumentJournal",
+        "8",
+        "DocumentJournalManager"
+      ],
+      [
+        "Enum",
+        "1",
+        "EnumRef"
+      ],
+      [
+        "Enum",
+        "3",
+        "EnumManager"
+      ],
+      [
+        "Enum",
+        "7",
+        "EnumList"
+      ],
+      [
+        "ExchangePlan",
+        "1",
+        "ExchangePlanObject"
+      ],
+      [
+        "ExchangePlan",
+        "3",
+        "ExchangePlanRef"
+      ],
+      [
+        "ExchangePlan",
+        "5",
+        "ExchangePlanSelection"
+      ],
+      [
+        "ExchangePlan",
+        "7",
+        "ExchangePlanList"
+      ],
+      [
+        "ExchangePlan",
+        "9",
+        "ExchangePlanManager"
+      ],
+      [
+        "InformationRegister",
+        "1",
+        "InformationRegisterRecord"
+      ],
+      [
+        "InformationRegister",
+        "11",
+        "InformationRegisterRecordKey"
+      ],
+      [
+        "InformationRegister",
+        "13",
+        "InformationRegisterRecordManager"
+      ],
+      [
+        "InformationRegister",
+        "3",
+        "InformationRegisterManager"
+      ],
+      [
+        "InformationRegister",
+        "5",
+        "InformationRegisterSelection"
+      ],
+      [
+        "InformationRegister",
+        "7",
+        "InformationRegisterList"
+      ],
+      [
+        "InformationRegister",
+        "9",
+        "InformationRegisterRecordSet"
+      ],
+      [
+        "Report",
+        "1",
+        "ReportObject"
+      ],
+      [
+        "Report",
+        "12",
+        "ReportManager"
+      ]
+    ],
+    "missing_builtin_type_uuids": [],
+    "missing_generated_types": [],
+    "structural": [
+      [
+        "AccountingRegister",
+        "attribute"
+      ],
+      [
+        "AccountingRegister",
+        "dimension"
+      ],
+      [
+        "AccountingRegister",
+        "resource"
+      ],
+      [
+        "AccumulationRegister",
+        "attribute"
+      ],
+      [
+        "AccumulationRegister",
+        "dimension"
+      ],
+      [
+        "AccumulationRegister",
+        "resource"
+      ],
+      [
+        "Catalog",
+        "attribute"
+      ],
+      [
+        "Catalog",
+        "ts_attribute"
+      ],
+      [
+        "ChartOfCharacteristicType",
+        "attribute"
+      ],
+      [
+        "Document",
+        "attribute"
+      ],
+      [
+        "Document",
+        "ts_attribute"
+      ],
+      [
+        "InformationRegister",
+        "attribute"
+      ],
+      [
+        "InformationRegister",
+        "dimension"
+      ],
+      [
+        "InformationRegister",
+        "resource"
+      ]
+    ],
+    "type_shapes": [
+      "composite",
+      "primitive",
+      "reference"
+    ]
+  },
+  "diagnostics": [],
+  "forbidden_diagnostics": [],
+  "identity": {
+    "failed": 0,
+    "indexed": 2428,
+    "total": 2428
+  },
+  "projections": {
+    "metadata_objects": {
+      "equal": true,
+      "extra": [],
+      "json": {
+        "duplicate": 0,
+        "sha256": "409571f25cd4264e84984f1a8798ed360d240e5cfdf6889c8e42a1cc5d22cea5",
+        "total": 2428,
+        "unique": 2428
+      },
+      "missing": [],
+      "xml": {
+        "duplicate": 0,
+        "sha256": "409571f25cd4264e84984f1a8798ed360d240e5cfdf6889c8e42a1cc5d22cea5",
+        "total": 2428,
+        "unique": 2428
+      }
+    },
+    "metadata_references": {
+      "equal": true,
+      "extra": [],
+      "json": {
+        "duplicate": 0,
+        "sha256": "1a52fd355c9bd44adb098179750232cd445304b2047f7a0ff605ca8ddddd1244",
+        "total": 7634,
+        "unique": 7634
+      },
+      "missing": [],
+      "xml": {
+        "duplicate": 0,
+        "sha256": "1a52fd355c9bd44adb098179750232cd445304b2047f7a0ff605ca8ddddd1244",
+        "total": 7634,
+        "unique": 7634
+      }
+    },
+    "metadata_type_ids": {
+      "equal": true,
+      "extra": [],
+      "json": {
+        "duplicate": 0,
+        "sha256": "930bd2366df4b2240e90887caaa266531a7ea49f63f67eee9feae268db3b139a",
+        "total": 6779,
+        "unique": 6779
+      },
+      "missing": [],
+      "xml": {
+        "duplicate": 0,
+        "sha256": "930bd2366df4b2240e90887caaa266531a7ea49f63f67eee9feae268db3b139a",
+        "total": 6779,
+        "unique": 6779
+      }
+    },
+    "object_attributes": {
+      "equal": true,
+      "extra": [],
+      "json": {
+        "duplicate": 0,
+        "sha256": "13c4da3018b41266a8163309f82547ebecfcc75cd61c9312c8931279afed0744",
+        "total": 11700,
+        "unique": 11700
+      },
+      "missing": [],
+      "xml": {
+        "duplicate": 0,
+        "sha256": "13c4da3018b41266a8163309f82547ebecfcc75cd61c9312c8931279afed0744",
+        "total": 11700,
+        "unique": 11700
+      }
+    },
+    "object_synonyms": {
+      "equal": true,
+      "extra": [],
+      "json": {
+        "duplicate": 0,
+        "sha256": "ba168d6bc3ae23855a4fe8131c7c55220a988942df9d39d29a43d3481981aed4",
+        "total": 689,
+        "unique": 689
+      },
+      "missing": [],
+      "xml": {
+        "duplicate": 0,
+        "sha256": "ba168d6bc3ae23855a4fe8131c7c55220a988942df9d39d29a43d3481981aed4",
+        "total": 689,
+        "unique": 689
+      }
+    }
+  },
+  "schema_version": 1,
+  "status": "complete",
+  "structural": {
+    "failed": 0,
+    "indexed": 689,
+    "total": 689
+  },
+  "unsupported_count": 0,
+  "zero_delta": true
+}
