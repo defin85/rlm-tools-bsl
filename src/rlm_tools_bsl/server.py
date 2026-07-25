@@ -1032,6 +1032,9 @@ def _rlm_start(
             index_block["v8unpack_form_status"] = idx_stats.get(
                 "v8unpack_form_status"
             )
+            index_block["v8unpack_form_projections_json"] = idx_stats.get(
+                "v8unpack_form_projections_json"
+            )
     else:
         # No index loaded — keep the common key set stable. Format-specific
         # enrichments such as v8unpack_form_status are present only when applicable.

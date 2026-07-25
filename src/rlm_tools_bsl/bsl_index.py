@@ -41,7 +41,7 @@ from rlm_tools_bsl.bsl_xml_parsers import (
 
 logger = logging.getLogger(__name__)
 
-BUILDER_VERSION = 18
+BUILDER_VERSION = 19
 
 
 _active_locks: dict[str, "_BuildLock"] = {}
@@ -5856,6 +5856,7 @@ def _refresh_form_elements(
             "v8unpack_form_unsupported": "0",
             "v8unpack_form_unproven_fragments": "0",
             "v8unpack_form_diagnostics_json": "[]",
+            "v8unpack_form_projections_json": "{}",
         }
         conn.execute("DELETE FROM index_meta WHERE key LIKE 'v8unpack_form_%'")
         conn.executemany(
@@ -5883,6 +5884,7 @@ def _refresh_form_elements(
             "v8unpack_form_unsupported": "0",
             "v8unpack_form_unproven_fragments": "0",
             "v8unpack_form_diagnostics_json": "[]",
+            "v8unpack_form_projections_json": "{}",
         }
 
     conn.execute("SAVEPOINT form_elements_refresh")
@@ -8314,6 +8316,7 @@ def _zero_stats() -> dict:
         "v8unpack_form_unsupported": None,
         "v8unpack_form_unproven_fragments": None,
         "v8unpack_form_diagnostics_json": None,
+        "v8unpack_form_projections_json": None,
         "event_subscriptions": 0,
         "scheduled_jobs": 0,
         "functional_options": 0,
@@ -9708,6 +9711,7 @@ class IndexReader:
                 "v8unpack_form_unsupported",
                 "v8unpack_form_unproven_fragments",
                 "v8unpack_form_diagnostics_json",
+                "v8unpack_form_projections_json",
             ):
                 meta_row = self._conn.execute("SELECT value FROM index_meta WHERE key = ?", (key,)).fetchone()
                 stats[key] = meta_row["value"] if meta_row else None

@@ -387,12 +387,16 @@ def test_real_oracle_manifests_cover_802_and_803_contracts():
 
 
 def test_form_oracle_manifest_is_self_contained_and_complete():
-    manifest = verify_form_manifest(
-        Path(__file__).parent / "fixtures" / "v8unpack_oracle" / "forms-802.manifest.json"
-    )
+    manifest = verify_form_manifest(Path(__file__).parent / "fixtures" / "v8unpack_oracle" / "forms-802.manifest.json")
 
     assert manifest["paired_managed"]["forms"] == 298
     assert manifest["live_coverage"]["forms"] == 4037
+    assert manifest["inventory"]["ordinary_candidates"] == {
+        "0-26": {"total": 531, "procedure_exists": 531, "procedure_missing": 0},
+        "0-27": {"total": 2311, "procedure_exists": 2309, "procedure_missing": 2},
+    }
+    assert manifest["inventory"]["projections"]["total"] == 4 * 4037
+    assert manifest["handler_contracts"][0]["canonical_event"] == "OnOpen"
 
 
 def test_verified_builtin_type_uuids_match_xml_representation():

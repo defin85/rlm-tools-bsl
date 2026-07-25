@@ -32,28 +32,57 @@ V8UNPACK_FORM_FAMILIES = {
     "Report": "ReportForm",
 }
 SUPPORTED_LOCAL_VERSIONS = frozenset({"5", "7", "9", "12", "13"})
-SUPPORTED_ELEMENT_VERSIONS = frozenset(
-    {"1", "0-26", "0-27", "0-5-1", "0-20-16", "0-23-16", "0-25-16"}
-)
+SUPPORTED_ELEMENT_VERSIONS = frozenset({"1", "0-26", "0-27", "0-5-1", "0-20-16", "0-23-16", "0-25-16"})
 SUPPORTED_FORM_ELEMENT_PAIRS = frozenset(
     {("1", "1"), *(("0", version) for version in SUPPORTED_ELEMENT_VERSIONS if version != "1")}
 )
+PROJECTION_ROLES = ("handlers", "commands", "attributes", "elements")
+PROJECTION_STATES = ("complete", "empty", "unsupported", "failed")
 ELEMENT_TYPES_BY_VERSION = {
     "1": frozenset({"Button", "Decoration", "Field", "Group", "Table"}),
     "0-26": frozenset(
         {
-            "Button", "CheckBox", "CommandPanel", "Field", "FieldHtml",
-            "Group", "Image", "Indicator", "Label", "ListField", "Panel",
-            "RadioBtn", "SelectField", "Separator", "Table", "TableField",
+            "Button",
+            "CheckBox",
+            "CommandPanel",
+            "Field",
+            "FieldHtml",
+            "Group",
+            "Image",
+            "Indicator",
+            "Label",
+            "ListField",
+            "Panel",
+            "RadioBtn",
+            "SelectField",
+            "Separator",
+            "Table",
+            "TableField",
             "TextDocumentField",
         }
     ),
     "0-27": frozenset(
         {
-            "Button", "CalendarBox", "Chart", "CheckBox", "CommandPanel",
-            "Field", "FieldHtml", "Group", "Image", "Indicator", "Label",
-            "ListField", "Panel", "RadioBtn", "SelectField", "Separator",
-            "Table", "TableField", "TextDocumentField", "TrackBar",
+            "Button",
+            "CalendarBox",
+            "Chart",
+            "CheckBox",
+            "CommandPanel",
+            "Field",
+            "FieldHtml",
+            "Group",
+            "Image",
+            "Indicator",
+            "Label",
+            "ListField",
+            "Panel",
+            "RadioBtn",
+            "SelectField",
+            "Separator",
+            "Table",
+            "TableField",
+            "TextDocumentField",
+            "TrackBar",
         }
     ),
     "0-5-1": frozenset(),
@@ -208,9 +237,7 @@ STANDARD_PROPERTY_NAMES = {
 KNOWN_PROPERTY_CHAINS = {
     ("КомпоновщикНастроек", ("0", "1", "0")): "Settings.Filter.FilterAvailableFields",
 }
-FILTER_CRITERION_LIST_TYPE_UUIDS = frozenset(
-    {"7759048b-c42c-4a8b-b8e8-533ca47459d1"}
-)
+FILTER_CRITERION_LIST_TYPE_UUIDS = frozenset({"7759048b-c42c-4a8b-b8e8-533ca47459d1"})
 EXT_INFO_EVENTS = frozenset(
     {
         "AfterWrite",
@@ -236,6 +263,33 @@ class V8UnpackFormResult:
     failed: int = 0
     unsupported: int = 0
     unproven_fragments: int = 0
+    projections: dict[str, dict[str, int]] = field(
+        default_factory=lambda: {role: {state: 0 for state in PROJECTION_STATES} for role in PROJECTION_ROLES}
+    )
+
+    def add_projections(self, states: dict[str, str]) -> None:
+        if set(states) != set(PROJECTION_ROLES):
+            raise AssertionError("incomplete v8unpack form projection states")
+        for role, state in states.items():
+            if state not in PROJECTION_STATES:
+                raise AssertionError(f"unknown v8unpack form projection state: {state}")
+            self.projections[role][state] += 1
+
+    def projection_summary(self) -> dict:
+        roles = {}
+        totals = {state: 0 for state in PROJECTION_STATES}
+        for role in PROJECTION_ROLES:
+            counters = self.projections[role]
+            role_total = sum(counters.values())
+            if role_total != self.total:
+                raise AssertionError(f"inconsistent {role} projection total")
+            roles[role] = {"total": role_total, **counters}
+            for state in PROJECTION_STATES:
+                totals[state] += counters[state]
+        projection_total = sum(totals.values())
+        if projection_total != 4 * self.total:
+            raise AssertionError("inconsistent v8unpack form projection total")
+        return {"total": projection_total, **totals, "roles": roles}
 
     def index_meta(self) -> dict[str, str]:
         return {
@@ -245,8 +299,12 @@ class V8UnpackFormResult:
             "v8unpack_form_failed": str(self.failed),
             "v8unpack_form_unsupported": str(self.unsupported),
             "v8unpack_form_unproven_fragments": str(self.unproven_fragments),
-            "v8unpack_form_diagnostics_json": json.dumps(
-                self.diagnostics, ensure_ascii=False, separators=(",", ":")
+            "v8unpack_form_diagnostics_json": json.dumps(self.diagnostics, ensure_ascii=False, separators=(",", ":")),
+            "v8unpack_form_projections_json": json.dumps(
+                self.projection_summary(),
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
             ),
         }
 
@@ -300,8 +358,7 @@ def _form_metadata_contract(
         if category in family_by_category
     }
     reference_names = {
-        object_uuid: object_name
-        for _category, object_name, object_uuid, _source in result.metadata_objects
+        object_uuid: object_name for _category, object_name, object_uuid, _source in result.metadata_objects
     }
     return resolved, main_tables, result.metadata_attribute_names, reference_names
 
@@ -453,10 +510,7 @@ def _type_pattern(
                 value = PLATFORM_FORM_TYPE_UUIDS[type_uuid]
                 if value:
                     values.append(value)
-            elif (
-                family == "FilterCriterion"
-                and type_uuid in FILTER_CRITERION_LIST_TYPE_UUIDS
-            ):
+            elif family == "FilterCriterion" and type_uuid in FILTER_CRITERION_LIST_TYPE_UUIDS:
                 values.append(f"cfg:FilterCriterionList.{owner}")
             else:
                 raise ValueError("unsupported attribute type")
@@ -484,6 +538,30 @@ def _form_row(owner: str, category: str, form: str, kind: str, file: str, **valu
     )
 
 
+def _projection_state(current: str, candidate: str) -> str:
+    priority = {"empty": 0, "complete": 1, "unsupported": 2, "failed": 3}
+    return candidate if priority[candidate] > priority[current] else current
+
+
+def _ordinary_on_open_handler(value: object) -> str:
+    """Decode only the exact 0-27 path proven by the ordinary-form probe."""
+    try:
+        binding = value["form"][0][0][4][2][2]
+    except (KeyError, IndexError, TypeError):
+        return ""
+    if not isinstance(binding, list) or len(binding) < 3:
+        return ""
+    try:
+        if _unquote(binding[1]) != "ПриОткрытии":
+            return ""
+        handler_binding = binding[2]
+        if not isinstance(handler_binding, list) or len(handler_binding) < 2:
+            raise ValueError("malformed ordinary OnOpen binding")
+        return _unquote(handler_binding[1])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("malformed ordinary OnOpen binding") from exc
+
+
 def _decode_supported(
     family: str,
     owner: str,
@@ -497,11 +575,18 @@ def _decode_supported(
     main_tables: dict[str, str],
     attribute_names: dict[tuple[str, str, str], str],
     reference_names: dict[str, str],
-) -> tuple[list[tuple], int]:
-    rows = [_form_row(owner, category, form_name, "form", rel_elements)]
+) -> tuple[list[tuple], dict[str, str], int]:
+    rows: list[tuple] = []
     unproven = 0
     element_version = main["Версия элементов формы"]
     pattern_index = 4 if element_version == "0-26" else 5
+    managed = element_version == "1"
+    projections = {
+        "handlers": "empty" if managed else "unsupported",
+        "commands": "empty" if managed else "unsupported",
+        "attributes": "empty",
+        "elements": "empty",
+    }
 
     for prop in elements["props"] or []:
         try:
@@ -514,9 +599,7 @@ def _decode_supported(
                 owner=owner,
             )
             main_table, query_text = (
-                _dynamic_list_settings(raw, main_tables)
-                if element_type == "cfg:DynamicList"
-                else ("", "")
+                _dynamic_list_settings(raw, main_tables) if element_type == "cfg:DynamicList" else ("", "")
             )
             rows.append(
                 _form_row(
@@ -529,18 +612,20 @@ def _decode_supported(
                     element_type=element_type,
                     main_table=main_table,
                     attribute_is_main=element_version == "1" and len(raw) > 10 and raw[10] == "1",
-                    extra_json=(
-                        json.dumps({"query_text": query_text}, ensure_ascii=False)
-                        if query_text
-                        else ""
-                    ),
+                    extra_json=(json.dumps({"query_text": query_text}, ensure_ascii=False) if query_text else ""),
                 )
             )
-        except (KeyError, IndexError, TypeError, ValueError):
+            projections["attributes"] = _projection_state(projections["attributes"], "complete")
+        except ValueError:
+            projections["attributes"] = _projection_state(projections["attributes"], "unsupported")
             unproven += 1
-            events.append(("unproven_fragment", "attribute", rel_elements))
+            events.append(("unsupported_fragment", "attribute", rel_elements))
+        except (KeyError, IndexError, TypeError):
+            projections["attributes"] = "failed"
+            unproven += 1
+            events.append(("failed_fragment", "attribute", rel_elements))
 
-    if element_version == "1":
+    if managed:
         for command in elements["commands"] or []:
             try:
                 rows.append(
@@ -554,12 +639,12 @@ def _decode_supported(
                         handler=_unquote(command["raw"][8]),
                     )
                 )
+                projections["commands"] = _projection_state(projections["commands"], "complete")
             except (KeyError, IndexError, TypeError, ValueError):
+                projections["commands"] = "failed"
                 unproven += 1
-                events.append(("unproven_fragment", "command", rel_elements))
-        for event, handler, _event_uuid in _event_handlers(
-            main.get("form"), FORM_EVENT_UUIDS
-        ):
+                events.append(("failed_fragment", "command", rel_elements))
+        for event, handler, _event_uuid in _event_handlers(main.get("form"), FORM_EVENT_UUIDS):
             rows.append(
                 _form_row(
                     owner,
@@ -572,6 +657,28 @@ def _decode_supported(
                     handler=handler,
                 )
             )
+            projections["handlers"] = _projection_state(projections["handlers"], "complete")
+    elif element_version == "0-27":
+        try:
+            handler = _ordinary_on_open_handler(main)
+        except ValueError:
+            projections["handlers"] = "failed"
+            unproven += 1
+            events.append(("failed_fragment", "handler", rel_elements))
+        else:
+            if handler:
+                rows.append(
+                    _form_row(
+                        owner,
+                        category,
+                        form_name,
+                        "handler",
+                        rel_elements,
+                        scope="form",
+                        event="OnOpen",
+                        handler=handler,
+                    )
+                )
 
     tree = elements.get("tree") or []
     data = elements.get("data") or {}
@@ -585,26 +692,24 @@ def _decode_supported(
     while stack:
         element = stack.pop()
         if not isinstance(element, dict):
+            projections["elements"] = "failed"
             unproven += 1
-            events.append(("unproven_fragment", "element", rel_elements))
+            events.append(("failed_fragment", "element", rel_elements))
             continue
         name = element.get("name")
         element_type = element.get("type")
-        children = (
-            element.get("child")
-            or element.get("children")
-            or element.get("items")
-            or []
-        )
+        children = element.get("child") or element.get("children") or element.get("items") or []
         if isinstance(children, list):
             stack.extend(children)
         if not isinstance(name, str) or not isinstance(element_type, str):
+            projections["elements"] = "failed"
             unproven += 1
-            events.append(("unproven_fragment", "element", rel_elements))
+            events.append(("failed_fragment", "element", rel_elements))
             continue
         if element_type not in ELEMENT_TYPES_BY_VERSION[element_version]:
+            projections["elements"] = "unsupported"
             unproven += 1
-            events.append(("unproven_fragment", "element_type", rel_elements))
+            events.append(("unsupported_fragment", "element_type", rel_elements))
             continue
         matching_details = details_by_name.get(name, [])
         details = matching_details[0] if matching_details else {}
@@ -633,11 +738,10 @@ def _decode_supported(
                 data_path=data_path,
             )
         )
-        if element_version == "1":
+        projections["elements"] = _projection_state(projections["elements"], "complete")
+        if managed:
             for handler_details in matching_details:
-                for event, handler, event_uuid in _event_handlers(
-                    handler_details, ELEMENT_EVENT_UUIDS
-                ):
+                for event, handler, event_uuid in _event_handlers(handler_details, ELEMENT_EVENT_UUIDS):
                     raw = handler_details.get("raw")
                     handler_element_type = ELEMENT_TYPE_BY_EVENT_UUID.get(event_uuid, element_type)
                     if event_uuid == "fe115cc8-9e33-4684-a166-bd5136fe7a9f":
@@ -645,14 +749,10 @@ def _decode_supported(
                             handler_element_type = "Table"
                         elif isinstance(raw, list):
                             try:
-                                name_offset = _calc_offset(
-                                    raw, ((3, 1), (1, 1), (2, 0))
-                                )
+                                name_offset = _calc_offset(raw, ((3, 1), (1, 1), (2, 0)))
                                 discriminator = raw[name_offset - 1]
                                 if isinstance(discriminator, str):
-                                    handler_element_type = FIELD_TYPES.get(
-                                        discriminator, element_type
-                                    )
+                                    handler_element_type = FIELD_TYPES.get(discriminator, element_type)
                             except (IndexError, TypeError, ValueError):
                                 pass
                     rows.append(
@@ -678,7 +778,24 @@ def _decode_supported(
                             ),
                         )
                     )
-    return rows, unproven
+                    projections["handlers"] = _projection_state(projections["handlers"], "complete")
+    rows.insert(
+        0,
+        _form_row(
+            owner,
+            category,
+            form_name,
+            "form",
+            rel_elements,
+            extra_json=json.dumps(
+                {"projections": projections},
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ),
+        ),
+    )
+    return rows, projections, unproven
 
 
 def _form_entries(root: Path):
@@ -706,18 +823,12 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
         config = read_v8unpack_json(root_path, "Configuration.json")
     except (OSError, ValueError, json.JSONDecodeError):
         result.status = "unsupported"
-        result.diagnostics = _diagnostics(
-            [("malformed_required_json", "configuration", "Configuration.json")]
-        )
+        result.diagnostics = _diagnostics([("malformed_required_json", "configuration", "Configuration.json")])
         return result
-    type_refs, main_tables, attribute_names, reference_names = _form_metadata_contract(
-        root_path
-    )
+    type_refs, main_tables, attribute_names, reference_names = _form_metadata_contract(root_path)
     if config.get("v8unpack") != "1.2.9" or config.get("obj_version") != "802":
         result.status = "unsupported"
-        result.diagnostics = _diagnostics(
-            [("unsupported_root_contract", "configuration", "Configuration.json")]
-        )
+        result.diagnostics = _diagnostics([("unsupported_root_contract", "configuration", "Configuration.json")])
         return result
 
     for family, owner, form_name, form_dir, form_kind in _form_entries(root_path):
@@ -739,6 +850,7 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
                 raise ValueError("form elements shape mismatch")
         except (KeyError, OSError, ValueError, json.JSONDecodeError):
             result.failed += 1
+            result.add_projections({role: "failed" for role in PROJECTION_ROLES})
             events.extend(
                 (
                     ("malformed_required_json", "main", rel_main),
@@ -759,10 +871,11 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
             or not isinstance(main.get("form"), list)
         ):
             result.unsupported += 1
+            result.add_projections({role: "unsupported" for role in PROJECTION_ROLES})
             events.append(("unsupported_form_contract", "form", rel_main))
             continue
         category = V8UNPACK_CATEGORY_MAP[family]
-        rows, unproven = _decode_supported(
+        rows, projections, unproven = _decode_supported(
             family,
             owner,
             category,
@@ -777,6 +890,7 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
             reference_names,
         )
         result.rows.extend(rows)
+        result.add_projections(projections)
         result.unproven_fragments += unproven
         result.indexed += 1
 
@@ -784,6 +898,7 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
         raise AssertionError("v8unpack form counters are inconsistent")
     result.rows.sort()
     result.diagnostics = _diagnostics(events)
-    if result.failed or result.unsupported or result.unproven_fragments:
+    summary = result.projection_summary()
+    if result.failed or result.unsupported or result.unproven_fragments or summary["unsupported"] or summary["failed"]:
         result.status = "partial"
     return result

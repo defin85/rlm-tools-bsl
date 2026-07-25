@@ -1,6 +1,6 @@
 {
-  "schema": "v8unpack_forms_802_v1",
-  "content_sha256": "146b4fe30b17fb6a41ec750fcb688a92e2b5997f0bb1957026b53128a5ff1460",
+  "schema": "v8unpack_forms_802_v2",
+  "content_sha256": "e073e296d6edfb3595f79d576c2c270aeb04c651dd56ba1c96f41f3695803aea",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -13,7 +13,7 @@
     "paired_json_tree": "1320b454e77c0f38bc49646c7e4da9607d277326874f199a52dc3497a1e845bd",
     "paired_xml_tree": "fdb1dec3253610a8ab734f623f937a70e654c6ab9232d0231d6a8553e2b5549a",
     "probe_fixture_tree": "f43c2ba96f1da054d82102ebab5041eb3976cf3d7606d080783c6373c36ef130",
-    "probe_script": "b64fa9b8bab61297d6020c651636f3734d439f3bd513af7ed839e2809c043a20",
+    "probe_script": "e4ea8601446182250b95496c00a482563757cbdccabe2d64da93a1bc3afaf681",
     "probe_verifier": "142d5d2ad23e7220a0ba68d7ee0b28e22d0f427ff49809c49810601ea32beee1",
     "probe_base_cf": "72763bed107d75fb77effc884c7c41f16c8bb2b1ad50885996b832a05494d825",
     "probe_changed_cf": "475a37bd26b076f0a206f72039bf4182f5f60baa2b768921f9d5cf520268185f",
@@ -23,7 +23,8 @@
     "probe_attribute_roundtrip_cf": "3f20d88ee7375437144ee3388e161773af03c3ce2c22db6cb81a2eca48cc8694",
     "probe_data_path_cf": "9c733fc8106110027f1f0ccd02fcfbf8541c504ebd3087b81f310c2d1f6d309c",
     "probe_data_path_roundtrip_cf": "6165e065e76681b35a414bf272504ef4397bf99416a4422b7c2ac718d73c9a43",
-    "probe_managed_parity": "86afd90dd5590be777db7917481f7403179639ceba703efe3fb14252e7ed1fb8"
+    "probe_managed_parity": "86afd90dd5590be777db7917481f7403179639ceba703efe3fb14252e7ed1fb8",
+    "probe_runtime_events": "801e93cd7a13d30211de81feb9c6c56d09aedca74da852491bf210d33ef26fd4"
   },
   "paired_managed": {
     "forms": 298,
@@ -92,6 +93,80 @@
     "known_empty_old_projections": 113,
     "known_empty_managed_projections": 2
   },
+  "inventory": {
+    "forms": 4037,
+    "families": {
+      "AccountingRegister": 1,
+      "AccumulationRegister": 36,
+      "Catalog": 416,
+      "ChartOfAccounts": 3,
+      "ChartOfCalculationTypes": 3,
+      "ChartOfCharacteristicType": 11,
+      "CommonForm": 113,
+      "DataProcessor": 538,
+      "Document": 657,
+      "DocumentJournal": 23,
+      "Enum": 3,
+      "ExchangePlan": 31,
+      "FilterCriterion": 2,
+      "InformationRegister": 244,
+      "Report": 1956
+    },
+    "local_versions": {"5": 10, "7": 93, "9": 721, "12": 181, "13": 3032},
+    "element_versions": {
+      "1": 297,
+      "0-26": 633,
+      "0-27": 2994,
+      "0-5-1": 54,
+      "0-20-16": 10,
+      "0-23-16": 17,
+      "0-25-16": 32
+    },
+    "ordinary_candidates": {
+      "0-26": {"total": 531, "procedure_exists": 531, "procedure_missing": 0},
+      "0-27": {"total": 2311, "procedure_exists": 2309, "procedure_missing": 2}
+    },
+    "rows_sha256": "725118a38ae8857f284de3fcc858db03bc6bdc0e48373867cf15a937315536cb",
+    "projections": {
+      "total": 16148,
+      "complete": 8240,
+      "empty": 428,
+      "unsupported": 7480,
+      "failed": 0,
+      "roles": {
+        "handlers": {"total": 4037, "complete": 269, "empty": 28, "unsupported": 3740, "failed": 0},
+        "commands": {"total": 4037, "complete": 225, "empty": 72, "unsupported": 3740, "failed": 0},
+        "attributes": {"total": 4037, "complete": 3903, "empty": 134, "unsupported": 0, "failed": 0},
+        "elements": {"total": 4037, "complete": 3843, "empty": 194, "unsupported": 0, "failed": 0}
+      }
+    }
+  },
+  "handler_contracts": [
+    {
+      "form_type": "0",
+      "element_version": "0-27",
+      "event": "ПриОткрытии",
+      "canonical_event": "OnOpen",
+      "event_pointer": "/form/0/0/4/2/2/1",
+      "handler_pointer": "/form/0/0/4/2/2/2/1",
+      "scope": "form",
+      "element_name": "",
+      "element_type": "",
+      "data_path": "",
+      "proof": "controlled_delta_and_runtime"
+    }
+  ],
+  "unsupported_projections": {
+    "commands": {
+      "element_versions": ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26", "0-27"],
+      "reason": "no controlled raw Form.json command delta"
+    },
+    "handlers": {
+      "element_versions": ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26"],
+      "ordinary_element_handlers": true,
+      "unknown_events": true
+    }
+  },
   "ordinary_probe": {
     "status": "success",
     "runtime_events": [
@@ -106,6 +181,18 @@
       ["form", 0, 0, 4, 2, 2, 1],
       ["form", 0, 0, 4, 2, 2, 2, 1]
     ],
+    "handler_contract": {
+      "form_type": "0",
+      "element_version": "0-27",
+      "event_pointer": "/form/0/0/4/2/2/1",
+      "handler_pointer": "/form/0/0/4/2/2/2/1",
+      "canonical_event": "OnOpen",
+      "scope": "form",
+      "element_name": "",
+      "element_type": "",
+      "data_path": ""
+    },
+    "runtime_events_sha256": "801e93cd7a13d30211de81feb9c6c56d09aedca74da852491bf210d33ef26fd4",
     "static_probes": {
       "attribute": {
         "json_pointers": ["/props/0/name", "/props/0/raw/4"],

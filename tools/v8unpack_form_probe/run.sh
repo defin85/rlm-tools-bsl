@@ -168,6 +168,7 @@ jq -n \
 	--arg form "$form_name" \
 	--arg event ПриОткрытии \
 	--arg handler ПробаПриОткрытии \
+	--arg canonical_event OnOpen \
 	--arg virtual_display ":$display_number" \
 	--arg base_cf_sha256 "$(sha256sum "$run_root/base.cf" | cut -d' ' -f1)" \
 	--arg probe_cf_sha256 "$(sha256sum "$run_root/probe.cf" | cut -d' ' -f1)" \
@@ -178,6 +179,7 @@ jq -n \
 	--arg data_path_cf_sha256 "$(sha256sum "$run_root/data-path.cf" | cut -d' ' -f1)" \
 	--arg data_path_roundtrip_cf_sha256 "$(sha256sum "$run_root/data-path-roundtrip.cf" | cut -d' ' -f1)" \
 	--arg managed_parity_sha256 "$(sha256sum "$run_root/managed-parity.json" | cut -d' ' -f1)" \
+	--arg runtime_events_sha256 "$(sha256sum "$run_root/events.jsonl" | cut -d' ' -f1)" \
 	--slurpfile handler_paths "$handler_paths" \
 	--slurpfile runtime_events "$run_root/events.jsonl" \
 	'{
@@ -188,6 +190,17 @@ jq -n \
 		form: $form,
 		event: $event,
 		handler: $handler,
+		handler_contract: {
+			form_type: "0",
+			element_version: "0-27",
+			event_pointer: "/form/0/0/4/2/2/1",
+			handler_pointer: "/form/0/0/4/2/2/2/1",
+			canonical_event: $canonical_event,
+			scope: "form",
+			element_name: "",
+			element_type: "",
+			data_path: ""
+		},
 		virtual_display: $virtual_display,
 		runtime_events: $runtime_events,
 		handler_paths: $handler_paths[0],
@@ -212,7 +225,8 @@ jq -n \
 			attribute_roundtrip_cf: $attribute_roundtrip_cf_sha256,
 			data_path_cf: $data_path_cf_sha256,
 			data_path_roundtrip_cf: $data_path_roundtrip_cf_sha256,
-			managed_parity: $managed_parity_sha256
+			managed_parity: $managed_parity_sha256,
+			runtime_events: $runtime_events_sha256
 		}
 	}' >"$run_root/result.json"
 

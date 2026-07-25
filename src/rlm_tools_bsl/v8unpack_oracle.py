@@ -7,6 +7,8 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
+import re
+import sqlite3
 import sys
 import xml.etree.ElementTree as ET
 import uuid
@@ -31,7 +33,7 @@ from rlm_tools_bsl.v8unpack_metadata import (
 
 SCHEMA_VERSION = 1
 COMPARATOR_VERSION = 1
-FORM_MANIFEST_SCHEMA = "v8unpack_forms_802_v1"
+FORM_MANIFEST_SCHEMA = "v8unpack_forms_802_v2"
 FORBIDDEN_DIAGNOSTICS = frozenset(
     {
         "unresolved_metadata_uuid",
@@ -512,17 +514,19 @@ def verify_form_manifest(path: str | Path) -> dict:
     if content_sha256 != _sha256(_json_bytes(payload)):
         raise ValueError("form manifest content hash mismatch")
     hashes = manifest.get("sha256", {})
-    if not hashes or not all(
-        isinstance(value, str) and len(value) == 64 for value in hashes.values()
-    ):
+    if not hashes or not all(isinstance(value, str) and len(value) == 64 for value in hashes.values()):
         raise ValueError("invalid form manifest hashes")
+    repo_root = Path(path).resolve().parents[3]
+    for key, rel_path in (
+        ("probe_script", "tools/v8unpack_form_probe/run.sh"),
+        ("probe_verifier", "tools/v8unpack_form_probe/verify.py"),
+    ):
+        if hashes.get(key) != _sha256((repo_root / rel_path).read_bytes()):
+            raise ValueError(f"form manifest hash mismatch: {key}")
     paired = manifest.get("paired_managed", {})
     counters = paired.get("counters", {})
     if (
-        counters.get("total")
-        != counters.get("indexed", 0)
-        + counters.get("failed", 0)
-        + counters.get("unsupported", 0)
+        counters.get("total") != counters.get("indexed", 0) + counters.get("failed", 0) + counters.get("unsupported", 0)
         or counters.get("failed")
         or counters.get("unsupported")
         or counters.get("unproven_fragments")
@@ -531,8 +535,7 @@ def verify_form_manifest(path: str | Path) -> dict:
     live_forms = manifest.get("live_coverage", {}).get("forms")
     if (
         not isinstance(live_forms, int)
-        or
-        paired.get("source_forms") != counters.get("total")
+        or paired.get("source_forms") != counters.get("total")
         or paired.get("live_form_delta") != counters.get("total") - live_forms
         or not paired.get("live_form_delta_note")
     ):
@@ -541,19 +544,25 @@ def verify_form_manifest(path: str | Path) -> dict:
     if set(projections) != {"handlers", "commands", "attributes"}:
         raise ValueError("incomplete form projections")
     for projection in projections.values():
-        if (
-            projection.get("xml") != projection.get("json")
-            or projection.get("missing")
-            or projection.get("extra")
-        ):
+        if projection.get("xml") != projection.get("json") or projection.get("missing") or projection.get("extra"):
             raise ValueError("form projection is not a zero delta")
     coverage = manifest.get("live_coverage", {})
     expected_families = {
-        "AccountingRegister", "AccumulationRegister", "Catalog",
-        "ChartOfAccounts", "ChartOfCalculationTypes",
-        "ChartOfCharacteristicType", "CommonForm", "DataProcessor",
-        "Document", "DocumentJournal", "Enum", "ExchangePlan",
-        "FilterCriterion", "InformationRegister", "Report",
+        "AccountingRegister",
+        "AccumulationRegister",
+        "Catalog",
+        "ChartOfAccounts",
+        "ChartOfCalculationTypes",
+        "ChartOfCharacteristicType",
+        "CommonForm",
+        "DataProcessor",
+        "Document",
+        "DocumentJournal",
+        "Enum",
+        "ExchangePlan",
+        "FilterCriterion",
+        "InformationRegister",
+        "Report",
     }
     if set(coverage.get("families", {})) != expected_families:
         raise ValueError("incomplete form family coverage")
@@ -561,18 +570,71 @@ def verify_form_manifest(path: str | Path) -> dict:
         raise ValueError("invalid form family counters")
     if set(coverage.get("local_versions", {})) != {"5", "7", "9", "12", "13"}:
         raise ValueError("incomplete local form version coverage")
-    if set(coverage.get("element_versions", {})) != {
-        "1", "0-26", "0-27", "0-5-1", "0-20-16", "0-23-16", "0-25-16"
-    }:
+    if set(coverage.get("element_versions", {})) != {"1", "0-26", "0-27", "0-5-1", "0-20-16", "0-23-16", "0-25-16"}:
         raise ValueError("incomplete form element version coverage")
     if (
         sum(coverage["local_versions"].values()) != coverage.get("forms")
         or sum(coverage["element_versions"].values()) != coverage.get("forms")
-        or coverage.get("module_path_present", 0)
-        + coverage.get("module_path_absent", 0)
-        != coverage.get("forms")
+        or coverage.get("module_path_present", 0) + coverage.get("module_path_absent", 0) != coverage.get("forms")
     ):
         raise ValueError("invalid form coverage counters")
+    inventory = manifest.get("inventory", {})
+    inventory_projections = inventory.get("projections", {})
+    roles = inventory_projections.get("roles", {})
+    if (
+        inventory.get("forms") != coverage.get("forms")
+        or inventory.get("families") != coverage.get("families")
+        or inventory.get("local_versions") != coverage.get("local_versions")
+        or inventory.get("element_versions") != coverage.get("element_versions")
+        or inventory.get("ordinary_candidates")
+        != {
+            "0-26": {
+                "total": 531,
+                "procedure_exists": 531,
+                "procedure_missing": 0,
+            },
+            "0-27": {
+                "total": 2311,
+                "procedure_exists": 2309,
+                "procedure_missing": 2,
+            },
+        }
+        or not isinstance(inventory.get("rows_sha256"), str)
+        or len(inventory["rows_sha256"]) != 64
+        or set(roles) != {"handlers", "commands", "attributes", "elements"}
+        or any(role.get("total") != coverage.get("forms") for role in roles.values())
+        or inventory_projections.get("total") != 4 * coverage.get("forms")
+        or inventory_projections.get("total")
+        != sum(inventory_projections.get(state, 0) for state in ("complete", "empty", "unsupported", "failed"))
+        or any(
+            role.get("total") != sum(role.get(state, 0) for state in ("complete", "empty", "unsupported", "failed"))
+            for role in roles.values()
+        )
+    ):
+        raise ValueError("invalid ordinary form inventory")
+    expected_contract = {
+        "form_type": "0",
+        "element_version": "0-27",
+        "event": "ПриОткрытии",
+        "canonical_event": "OnOpen",
+        "event_pointer": "/form/0/0/4/2/2/1",
+        "handler_pointer": "/form/0/0/4/2/2/2/1",
+        "scope": "form",
+        "element_name": "",
+        "element_type": "",
+        "data_path": "",
+        "proof": "controlled_delta_and_runtime",
+    }
+    unsupported = manifest.get("unsupported_projections", {})
+    if (
+        manifest.get("handler_contracts") != [expected_contract]
+        or unsupported.get("commands", {}).get("element_versions")
+        != ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26", "0-27"]
+        or unsupported.get("handlers", {}).get("element_versions") != ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26"]
+        or unsupported.get("handlers", {}).get("ordinary_element_handlers") is not True
+        or unsupported.get("handlers", {}).get("unknown_events") is not True
+    ):
+        raise ValueError("invalid ordinary form contract registry")
     probe = manifest.get("ordinary_probe", {})
     if (
         probe.get("status") != "success"
@@ -587,11 +649,153 @@ def verify_form_manifest(path: str | Path) -> dict:
         ]
         or not probe.get("handler_paths")
         or not probe.get("static_probes")
+        or probe.get("handler_contract")
+        != {key: value for key, value in expected_contract.items() if key not in {"event", "proof"}}
+        or not isinstance(probe.get("runtime_events_sha256"), str)
+        or len(probe["runtime_events_sha256"]) != 64
     ):
         raise ValueError("invalid ordinary form probe evidence")
     if not manifest.get("commands"):
         raise ValueError("missing form oracle reproduction command")
     return manifest
+
+
+def _quoted(value: object) -> str:
+    if not isinstance(value, str) or len(value) < 2 or value[0] != '"' or value[-1] != '"':
+        return ""
+    return value[1:-1].replace('""', '"')
+
+
+def build_form_inventory(
+    root: str | Path,
+    *,
+    index_path: str | Path | None = None,
+) -> dict:
+    """Build the deterministic live ordinary-form evidence report."""
+    from rlm_tools_bsl.v8unpack_forms import (
+        _form_entries,
+        collect_v8unpack_forms,
+    )
+    from rlm_tools_bsl.v8unpack_metadata import read_v8unpack_json
+
+    root_path = Path(root).resolve()
+    families: Counter = Counter()
+    local_versions: Counter = Counter()
+    element_versions: Counter = Counter()
+    candidate_counts: Counter = Counter()
+    procedure_counts: Counter = Counter()
+    rows = []
+    form_keys_by_version: dict[str, set[tuple[str, str, str]]] = {
+        "0-26": set(),
+        "0-27": set(),
+    }
+    for family, owner, form_name, form_dir, form_kind in _form_entries(root_path):
+        rel_main = (form_dir / f"{form_kind}.json").relative_to(root_path).as_posix()
+        try:
+            main = read_v8unpack_json(root_path, rel_main)
+        except (OSError, ValueError, json.JSONDecodeError):
+            continue
+        families[family] += 1
+        local_versions[str(main.get("obj_version", ""))] += 1
+        element_version = str(main.get("Версия элементов формы", ""))
+        element_versions[element_version] += 1
+        if element_version not in form_keys_by_version:
+            continue
+        form_keys_by_version[element_version].add((family, owner, form_name))
+        slot = 1 if element_version == "0-26" else 2
+        try:
+            binding = main["form"][0][0][4][slot][2]
+            event = _quoted(binding[1])
+            handler = _quoted(binding[2][1])
+        except (KeyError, IndexError, TypeError):
+            continue
+        if not event or not handler:
+            continue
+        module_path = form_dir / f"{form_kind}.obj.bsl"
+        procedure_exists = False
+        if module_path.is_file() and not module_path.is_symlink():
+            body = module_path.read_text(encoding="utf-8-sig")
+            procedure_exists = (
+                re.search(
+                    rf"(?im)^\s*(?:процедура|функция)\s+{re.escape(handler)}\s*\(",
+                    body,
+                )
+                is not None
+            )
+        candidate_counts[element_version] += 1
+        if procedure_exists:
+            procedure_counts[element_version] += 1
+        rows.append(
+            {
+                "element_version": element_version,
+                "event": event,
+                "event_pointer": f"/form/0/0/4/{slot}/2/1",
+                "family": family,
+                "form": form_name,
+                "handler": handler,
+                "handler_pointer": f"/form/0/0/4/{slot}/2/2/1",
+                "main_path": rel_main,
+                "owner": owner,
+                "procedure_exists": procedure_exists,
+            }
+        )
+    rows.sort(key=_json_bytes)
+    form_result = collect_v8unpack_forms(root_path)
+    report = {
+        "schema": "v8unpack_form_inventory_v1",
+        "root_object_version": "802",
+        "forms": sum(families.values()),
+        "families": dict(sorted(families.items())),
+        "local_versions": dict(sorted(local_versions.items())),
+        "element_versions": dict(sorted(element_versions.items())),
+        "ordinary_candidates": {
+            version: {
+                "total": candidate_counts[version],
+                "procedure_exists": procedure_counts[version],
+                "procedure_missing": candidate_counts[version] - procedure_counts[version],
+            }
+            for version in ("0-26", "0-27")
+        },
+        "rows_sha256": _sha256(_json_bytes(rows)),
+        "rows": rows,
+        "projections": form_result.projection_summary(),
+    }
+    if index_path is not None:
+        with sqlite3.connect(index_path) as conn:
+            indexed_handlers = conn.execute("SELECT COUNT(*) FROM form_elements WHERE kind='handler'").fetchone()[0]
+            indexed_commands = conn.execute("SELECT COUNT(*) FROM form_elements WHERE kind='command'").fetchone()[0]
+            exact = {}
+            for version, keys in form_keys_by_version.items():
+                matched = 0
+                for _family, owner, form_name in keys:
+                    matched += conn.execute(
+                        "SELECT COUNT(*) FROM form_elements WHERE object_name=? AND form_name=? AND kind='handler'",
+                        (owner, form_name),
+                    ).fetchone()[0]
+                exact[version] = matched
+        report["index_comparison"] = {
+            "handlers_total": indexed_handlers,
+            "commands_total": indexed_commands,
+            "ordinary_handlers_by_version": exact,
+        }
+    payload = dict(report)
+    report["content_sha256"] = _sha256(_json_bytes(payload))
+    return report
+
+
+def verify_form_inventory(report: dict, manifest: dict) -> None:
+    expected = manifest.get("inventory", {})
+    if (
+        report.get("schema") != "v8unpack_form_inventory_v1"
+        or report.get("forms") != expected.get("forms")
+        or report.get("families") != expected.get("families")
+        or report.get("local_versions") != expected.get("local_versions")
+        or report.get("element_versions") != expected.get("element_versions")
+        or report.get("ordinary_candidates") != expected.get("ordinary_candidates")
+        or report.get("rows_sha256") != expected.get("rows_sha256")
+        or report.get("projections") != expected.get("projections")
+    ):
+        raise ValueError("live form inventory differs from manifest")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -607,17 +811,32 @@ def main(argv: list[str] | None = None) -> int:
     verify_parser = manifest_sub.add_parser("verify")
     verify_parser.add_argument("path", nargs="+")
     form_manifest_parser = sub.add_parser("form-manifest")
-    form_manifest_sub = form_manifest_parser.add_subparsers(
-        dest="form_manifest_action", required=True
-    )
+    form_manifest_sub = form_manifest_parser.add_subparsers(dest="form_manifest_action", required=True)
     form_verify_parser = form_manifest_sub.add_parser("verify")
     form_verify_parser.add_argument("path")
+    form_inventory_parser = sub.add_parser("form-inventory")
+    form_inventory_parser.add_argument("--root", required=True)
+    form_inventory_parser.add_argument("--output", required=True)
+    form_inventory_parser.add_argument("--index")
+    form_inventory_parser.add_argument("--manifest")
     args = parser.parse_args(argv)
     if args.action == "manifest":
         verify_manifests(args.path)
         return 0
     if args.action == "form-manifest":
         verify_form_manifest(args.path)
+        return 0
+    if args.action == "form-inventory":
+        report = build_form_inventory(args.root, index_path=args.index)
+        if args.manifest:
+            verify_form_inventory(
+                report,
+                verify_form_manifest(args.manifest),
+            )
+        Path(args.output).write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         return 0
     manifest, report = compare(
         xml_root=args.xml_root,

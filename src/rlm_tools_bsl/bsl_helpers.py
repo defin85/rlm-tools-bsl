@@ -8284,7 +8284,16 @@ def make_bsl_helpers(
 
             form = forms[key]
             kind = r.get("kind", "")
-            if kind == "handler":
+            if kind == "form":
+                extra = r.get("extra_json", "")
+                if extra:
+                    try:
+                        projections = json.loads(extra).get("projections")
+                        if isinstance(projections, dict):
+                            form["projections"] = projections
+                    except (AttributeError, json.JSONDecodeError, TypeError):
+                        pass
+            elif kind == "handler":
                 h = {
                     "element": r.get("element_name", ""),
                     "event": r.get("event", ""),
@@ -9753,7 +9762,7 @@ def make_bsl_helpers(
             "v8unpack_metadata_unsupported_count": stats.get("v8unpack_metadata_unsupported_count"),
             "v8unpack_metadata_diagnostics_json": stats.get("v8unpack_metadata_diagnostics_json"),
             "v8unpack_metadata_snapshot_json": stats.get("v8unpack_metadata_snapshot_json"),
-            # v18 v8unpack JSON form completeness
+            # v19 v8unpack JSON form projection completeness
             "v8unpack_form_status": stats.get("v8unpack_form_status"),
             "v8unpack_form_total": stats.get("v8unpack_form_total"),
             "v8unpack_form_indexed": stats.get("v8unpack_form_indexed"),
@@ -9764,6 +9773,9 @@ def make_bsl_helpers(
             ),
             "v8unpack_form_diagnostics_json": stats.get(
                 "v8unpack_form_diagnostics_json"
+            ),
+            "v8unpack_form_projections_json": stats.get(
+                "v8unpack_form_projections_json"
             ),
             "metadata_objects_count": stats.get("metadata_objects", 0),
             "metadata_type_ids_count": stats.get("metadata_type_ids", 0),

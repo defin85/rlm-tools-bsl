@@ -92,6 +92,47 @@ def _form(
     _write(folder / f"{form_kind}.id.json", {"uuid": "50000000-0000-4000-8000-000000000001"})
 
 
+def _ordinary_form(
+    tmp_path: Path,
+    *,
+    element_version: str = "0-27",
+    event: str = "ПриОткрытии",
+    handler: str = "ОбычныйПриОткрытии",
+) -> Path:
+    _form(
+        tmp_path,
+        "Document",
+        "Документ",
+        "DocumentForm",
+        "Форма",
+        element_version=element_version,
+    )
+    folder = tmp_path / "Document" / "Документ" / "DocumentForm" / "Форма"
+    main_path = folder / "DocumentForm.json"
+    main = json.loads(main_path.read_text())
+    main["Тип формы"] = "0"
+    slot = 1 if element_version == "0-26" else 2
+    form_payload = [None, None, None, None, [None] * (slot + 1)]
+    form_payload[4][slot] = [
+        None,
+        None,
+        [None, f'"{event}"', [None, f'"{handler}"']],
+    ]
+    main["form"] = [[form_payload]]
+    _write(main_path, main)
+    elements_path = folder / "DocumentForm.elem.json"
+    elements = json.loads(elements_path.read_text())
+    elements["props"] = []
+    elements["commands"] = [
+        {
+            "name": "НедоказаннаяКоманда",
+            "raw": ["9", ["1"], '"НедоказаннаяКоманда"', [], [], [], [], [], '"Действие"'],
+        }
+    ]
+    _write(elements_path, elements)
+    return folder
+
+
 @pytest.mark.parametrize(
     ("family", "form_kind"),
     [*sorted(V8UNPACK_FORM_FAMILIES.items()), ("CommonForm", "CommonForm")],
@@ -119,6 +160,77 @@ def test_managed_form_emits_proven_rows(tmp_path):
         ("command", "КомандаПробника", "", "КомандаПробника"),
         ("handler", "", "OnCreateAtServer", "ПриСозданииНаСервере"),
     }
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"] == {
+        "attributes": "complete",
+        "commands": "complete",
+        "elements": "empty",
+        "handlers": "complete",
+    }
+
+
+def test_ordinary_0_27_emits_only_proven_on_open_handler(tmp_path):
+    _root(tmp_path)
+    _ordinary_form(tmp_path)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    handlers = [row for row in result.rows if row[3] == "handler"]
+    assert [(row[4], row[5], row[6], row[7], row[8], row[9]) for row in handlers] == [
+        ("form", "", "", "OnOpen", "ОбычныйПриОткрытии", "")
+    ]
+    assert not any(row[3] == "command" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"] == {
+        "attributes": "empty",
+        "commands": "unsupported",
+        "elements": "empty",
+        "handlers": "unsupported",
+    }
+    summary = json.loads(result.index_meta()["v8unpack_form_projections_json"])
+    assert summary["total"] == 4
+    assert summary["unsupported"] == 2
+    assert result.status == "partial"
+
+
+@pytest.mark.parametrize("element_version", ["0-26", "0-5-1", "0-20-16", "0-23-16", "0-25-16"])
+def test_other_ordinary_versions_do_not_guess_handlers_or_commands(tmp_path, element_version):
+    _root(tmp_path)
+    _ordinary_form(tmp_path, element_version=element_version)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] in {"handler", "command"} for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    projections = json.loads(marker[12])["projections"]
+    assert projections["handlers"] == "unsupported"
+    assert projections["commands"] == "unsupported"
+
+
+def test_unknown_ordinary_event_is_not_guessed(tmp_path):
+    _root(tmp_path)
+    _ordinary_form(tmp_path, event="БудущееСобытие")
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] == "handler" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "unsupported"
+
+
+def test_malformed_proven_ordinary_handler_is_failed(tmp_path):
+    _root(tmp_path)
+    folder = _ordinary_form(tmp_path)
+    main_path = folder / "DocumentForm.json"
+    main = json.loads(main_path.read_text())
+    main["form"][0][0][4][2][2][2] = []
+    _write(main_path, main)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "failed"
+    assert result.status == "partial"
 
 
 def test_unknown_element_version_is_unsupported(tmp_path):
@@ -137,6 +249,8 @@ def test_unknown_element_version_is_unsupported(tmp_path):
     assert (result.total, result.indexed, result.failed, result.unsupported) == (1, 0, 0, 1)
     assert result.rows == []
     assert result.status == "partial"
+    summary = json.loads(result.index_meta()["v8unpack_form_projections_json"])
+    assert summary["unsupported"] == 4
 
 
 def test_symlinked_required_json_fails_only_one_form(tmp_path):
@@ -151,6 +265,8 @@ def test_symlinked_required_json_fails_only_one_form(tmp_path):
 
     assert (result.total, result.indexed, result.failed, result.unsupported) == (2, 1, 1, 0)
     assert {row[2] for row in result.rows} == {"Вторая"}
+    summary = json.loads(result.index_meta()["v8unpack_form_projections_json"])
+    assert summary["failed"] == 4
 
 
 def test_unknown_element_type_is_reported_without_guessing(tmp_path):
@@ -208,19 +324,11 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
     )
 
     with sqlite3.connect(db_path) as conn:
-        before = conn.execute(
-            "SELECT * FROM form_elements ORDER BY id"
-        ).fetchall()
+        before = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
     builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
-        after = conn.execute(
-            "SELECT * FROM form_elements ORDER BY id"
-        ).fetchall()
-        meta = dict(
-            conn.execute(
-                "SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"
-            )
-        )
+        after = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
+        meta = dict(conn.execute("SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"))
 
     assert after == before
     assert meta["v8unpack_form_status"] == "complete"
@@ -232,9 +340,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
         resolve_safe=lambda path: tmp_path / path,
         read_file_fn=lambda path: (tmp_path / path).read_text(encoding="utf-8-sig"),
         grep_fn=lambda *_args, **_kwargs: [],
-        glob_files_fn=lambda pattern: [
-            path.relative_to(tmp_path).as_posix() for path in tmp_path.glob(pattern)
-        ],
+        glob_files_fn=lambda pattern: [path.relative_to(tmp_path).as_posix() for path in tmp_path.glob(pattern)],
         format_info=detect_format(tmp_path),
         idx_reader=reader,
     )
@@ -243,13 +349,17 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
     reader.close()
 
     assert parsed[0]["module_path"] == "CommonForm/Форма/CommonForm.obj.bsl"
+    assert parsed[0]["projections"] == {
+        "attributes": "complete",
+        "commands": "complete",
+        "elements": "empty",
+        "handlers": "complete",
+    }
     assert filtered[0]["handlers"][0]["handler"] == "ПриСозданииНаСервере"
+    assert filtered[0]["projections"] == parsed[0]["projections"]
 
     with sqlite3.connect(db_path) as conn:
-        conn.execute(
-            "UPDATE index_meta SET value='17' "
-            "WHERE key IN ('builder_version', 'version')"
-        )
+        conn.execute("UPDATE index_meta SET value='18' WHERE key IN ('builder_version', 'version')")
     delta = builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
         flags = dict(
@@ -258,9 +368,9 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
                 "WHERE key IN ('builder_version', 'has_calls', 'has_fts', 'has_synonyms')"
             )
         )
-    assert delta["rebuild_reason"] == "schema upgrade v17->18"
+    assert delta["rebuild_reason"] == "schema upgrade v18->19"
     assert flags == {
-        "builder_version": "18",
+        "builder_version": "19",
         "has_calls": "0",
         "has_fts": "0",
         "has_synonyms": "0",
@@ -289,6 +399,33 @@ def test_refresh_failure_preserves_previous_layer(tmp_path, monkeypatch):
         _refresh_form_elements(conn, str(tmp_path), build_metadata=True)
 
     assert conn.execute("SELECT file FROM form_elements").fetchall() == [("old",)]
+
+
+@pytest.mark.parametrize("failure_point", ["rows", "meta"])
+def test_refresh_failure_inside_savepoint_preserves_previous_layer(tmp_path, failure_point):
+    _root(tmp_path)
+    _form(tmp_path, "CommonForm", "Форма", "CommonForm", "Форма")
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE index_meta (key TEXT PRIMARY KEY, value TEXT)")
+    _refresh_form_elements(conn, str(tmp_path), build_metadata=True)
+    old_rows = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
+    old_meta = dict(conn.execute("SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"))
+    if failure_point == "rows":
+        conn.execute(
+            "CREATE TRIGGER fail_form_rows BEFORE INSERT ON form_elements BEGIN SELECT RAISE(ABORT, 'boom rows'); END"
+        )
+    else:
+        conn.execute(
+            "CREATE TRIGGER fail_form_meta BEFORE INSERT ON index_meta "
+            "WHEN NEW.key='v8unpack_form_status' "
+            "BEGIN SELECT RAISE(ABORT, 'boom meta'); END"
+        )
+
+    with pytest.raises(sqlite3.IntegrityError, match="boom"):
+        _refresh_form_elements(conn, str(tmp_path), build_metadata=True)
+
+    assert conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall() == old_rows
+    assert dict(conn.execute("SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'")) == old_meta
 
 
 def test_disabling_metadata_clears_previous_form_layer(tmp_path):

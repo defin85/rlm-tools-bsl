@@ -759,7 +759,7 @@ LIMIT 30;
 
 **Обратная совместимость:** на v8 индексе все методы возвращают `None` / `{}` через `try/except OperationalError`. `update()` создаёт таблицу через `CREATE TABLE IF NOT EXISTS`.
 
-### form_elements (Level-9, v10+; JSON-формы v8unpack — v18+)
+### form_elements (Level-9, v10+; JSON-формы v8unpack — v19)
 
 Обработчики событий, команды и атрибуты форм 1С. Строится при `build_metadata=True` (по умолчанию). Параллельный сбор через `ThreadPoolExecutor(min(os.cpu_count(), 8))`.
 
@@ -778,7 +778,7 @@ LIMIT 30;
 | `data_path`         | TEXT       | Путь данных элемента                            | `Организация`                                       |
 | `main_table`        | TEXT       | Основная таблица DynamicList                    | `Document.РеализацияТоваровУслуг`                   |
 | `attribute_is_main` | INTEGER    | Основной атрибут формы (1/0)                    | `1`                                                 |
-| `extra_json`        | TEXT       | JSON с query_text (≤512 символов)               | `{"query_text":"ВЫБРАТЬ..."}`                       |
+| `extra_json`        | TEXT       | JSON с query_text либо состояниями проекций      | `{"projections":{"handlers":"complete",...}}`       |
 | `file`              | TEXT       | Относительный путь к XML формы                  | `Documents/Тест/Forms/Ф1/Ext/Form.xml`             |
 
 Для `v8unpack 1.2.9 / obj_version 802` используется закрытая матрица 15
@@ -786,14 +786,28 @@ LIMIT 30;
 `*Form.json`, `*Form.elem.json`, `*Form.id.json`; `*Form.obj.bsl`
 необязателен. Служебная строка `kind=form` сохраняет даже пустую форму.
 Обработчики, команды, реквизиты и пути данных добавляются только по
-подтверждённому контракту. Поэтому пустые коллекции старой обычной формы не
-доказывают отсутствие элементов; проверяйте `v8unpack_form_*` и исходные JSON.
+подтверждённому контракту. Индекс v19 дополнительно оценивает для каждой формы
+роли `handlers`, `commands`, `attributes`, `elements`: `complete`, `empty`,
+`unsupported`, `failed`. Состояния индексированной формы лежат в
+`kind=form.extra_json.projections`, агрегат — в
+`v8unpack_form_projections_json`; по каждой роли сумма состояний равна числу
+форм, общий total равен четырём числам форм. Общий статус остаётся `partial`,
+пока есть `unsupported` или `failed`.
+
+Для обычных форм доказан только форменный обработчик
+`0-27/ПриОткрытии → OnOpen`; он индексируется с `scope=form`. Команды,
+элементные обработчики, `0-26` и старые версии не угадываются и явно имеют
+`unsupported`. Поэтому пустые коллекции не доказывают отсутствие данных.
 
 Автономная проверка оракула:
 
 ```bash
 python3 -m rlm_tools_bsl.v8unpack_oracle form-manifest verify \
   tests/fixtures/v8unpack_oracle/forms-802.manifest.json
+python3 -m rlm_tools_bsl.v8unpack_oracle form-inventory \
+  --root <корень-v8unpack> --manifest \
+  tests/fixtures/v8unpack_oracle/forms-802.manifest.json \
+  --output .artifacts/v8unpack-form-inventory.json
 ./tools/v8unpack_form_probe/run.sh
 ```
 
