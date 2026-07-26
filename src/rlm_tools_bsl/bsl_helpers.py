@@ -9759,7 +9759,14 @@ def make_bsl_helpers(
             "v8unpack_metadata_structural_total": stats.get("v8unpack_metadata_structural_total"),
             "v8unpack_metadata_structural_indexed": stats.get("v8unpack_metadata_structural_indexed"),
             "v8unpack_metadata_structural_failed": stats.get("v8unpack_metadata_structural_failed"),
+            "v8unpack_metadata_facet_total": stats.get("v8unpack_metadata_facet_total"),
+            "v8unpack_metadata_facet_supported": stats.get("v8unpack_metadata_facet_supported"),
+            "v8unpack_metadata_facet_unsupported": stats.get("v8unpack_metadata_facet_unsupported"),
+            "v8unpack_metadata_facets_json": stats.get("v8unpack_metadata_facets_json"),
             "v8unpack_metadata_unsupported_count": stats.get("v8unpack_metadata_unsupported_count"),
+            "v8unpack_metadata_diagnostic_groups_total": stats.get(
+                "v8unpack_metadata_diagnostic_groups_total"
+            ),
             "v8unpack_metadata_diagnostics_json": stats.get("v8unpack_metadata_diagnostics_json"),
             "v8unpack_metadata_snapshot_json": stats.get("v8unpack_metadata_snapshot_json"),
             # v19 v8unpack JSON form projection completeness

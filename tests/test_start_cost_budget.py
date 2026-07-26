@@ -60,7 +60,9 @@ _BASELINES = {
 # carries available_functions, i.e. every helper `sig` — after the sig trim it was back under
 # the old ceiling on its own, but at 98–99% of it; re-baselining restores the +5% margin so the
 # next edit trips the guard on its own merits rather than on inherited saturation.
-_PAYLOAD_BASELINES = {"slim": 20691, "full": 43482}
+# v1.29.2 re-baseline: seven required metadata facet/diagnostic fields extend only
+# the indexed start payload; measured values restore the guard's intended margin.
+_PAYLOAD_BASELINES = {"slim": 21897, "full": 45676}
 _DRIFT = 1.05  # allow ≤5% growth before failing
 
 _IDX_STATS = {

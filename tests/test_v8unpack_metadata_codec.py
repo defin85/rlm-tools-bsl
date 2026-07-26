@@ -31,6 +31,7 @@ from rlm_tools_bsl.v8unpack_oracle import (
     _sha256,
     _verify_manifest,
     projection_summary,
+    verify_metadata_inventory_manifest,
     verify_manifests,
     verify_form_manifest,
 )
@@ -206,7 +207,11 @@ def _json_layer(db_path: Path) -> dict:
             "meta": conn.execute(
                 "SELECT key,value FROM index_meta "
                 "WHERE key IN ('v8unpack_metadata_snapshot_json',"
-                "'v8unpack_metadata_diagnostics_json','v8unpack_metadata_status') "
+                "'v8unpack_metadata_diagnostics_json','v8unpack_metadata_facets_json',"
+                "'v8unpack_metadata_status','v8unpack_metadata_structural_total',"
+                "'v8unpack_metadata_structural_indexed','v8unpack_metadata_structural_failed',"
+                "'v8unpack_metadata_facet_total','v8unpack_metadata_facet_supported',"
+                "'v8unpack_metadata_facet_unsupported','v8unpack_metadata_diagnostic_groups_total') "
                 "ORDER BY key"
             ).fetchall()
         }
@@ -265,8 +270,11 @@ def test_oracle_manifest_verifies_report_content(tmp_path):
         "status": "complete",
         "identity": {"total": 0, "indexed": 0, "failed": 0},
         "structural": {"total": 0, "indexed": 0, "failed": 0},
+        "facets": {"total": 0, "supported": 0, "unsupported": 0, "inventory": []},
         "diagnostics": [],
         "unsupported_count": 0,
+        "diagnostic_groups_total": 0,
+        "diagnostics_truncated": False,
         "forbidden_diagnostics": [],
         "assertions": {},
         "zero_delta": True,
@@ -384,6 +392,31 @@ def test_real_oracle_manifests_cover_802_and_803_contracts():
             root / "structural-coverage-803.manifest.json",
         ]
     )
+
+
+def test_active_metadata_inventory_evidence_is_self_contained():
+    path = Path(__file__).parent / "fixtures" / "v8unpack_oracle" / "tn-bp20-custom-mcp-802.inventory.json"
+    inventory = verify_metadata_inventory_manifest(path)
+
+    assert inventory["baseline"]["structural"] == {"total": 689, "indexed": 130, "failed": 559}
+    assert inventory["current"]["structural"] == {"total": 689, "indexed": 689, "failed": 0}
+    assert inventory["current"]["facets"] == {"total": 1787, "supported": 1388, "unsupported": 399}
+
+
+def test_active_metadata_inventory_rejects_tampered_baseline(tmp_path):
+    fixture_dir = Path(__file__).parent / "fixtures" / "v8unpack_oracle"
+    for source in fixture_dir.glob("bp-802.*.json"):
+        shutil.copy(source, tmp_path / source.name)
+    source = fixture_dir / "tn-bp20-custom-mcp-802.inventory.json"
+    inventory = json.loads(source.read_text(encoding="utf-8"))
+    inventory["baseline"]["structural"]["indexed"] = 131
+    payload = {key: value for key, value in inventory.items() if key != "content_sha256"}
+    inventory["content_sha256"] = _sha256(_json_bytes(payload))
+    path = tmp_path / source.name
+    _write(path, inventory)
+
+    with pytest.raises(ValueError, match="invalid metadata facet inventory"):
+        verify_metadata_inventory_manifest(path)
 
 
 def test_form_oracle_manifest_is_self_contained_and_complete():
@@ -855,6 +888,67 @@ def test_excluded_header_facet_is_aggregated(tmp_path):
         "count": 1,
         "examples": ["Catalog/Товары/Catalog.json"],
     } in result.diagnostics
+    assert result.structural_total == result.structural_indexed == 1
+    assert result.facet_total == 1
+    assert result.facet_supported == 0
+    assert result.facets == [
+        {
+            "family": "Catalog",
+            "header_index": 3,
+            "tag": "3daea016-69b7-4ed4-9453-127911372fe6",
+            "classification": "informational",
+            "semantic": "Template",
+            "projection": None,
+            "supported": False,
+            "count": 1,
+            "owners": 1,
+            "examples": ["Catalog/Товары/Catalog.json"],
+        }
+    ]
+
+
+def test_projected_form_facet_requires_the_form_projection(tmp_path):
+    _fixture(tmp_path)
+    path = tmp_path / "Catalog" / "Товары" / "Catalog.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["header"][0][7] = [
+        "fdf816d2-1ead-11d5-b975-0050bae0a95d",
+        "1",
+        ["projected-by-form-layer"],
+    ]
+    _write(path, data)
+
+    result = collect_v8unpack_metadata(tmp_path)
+
+    assert result.status == "partial"
+    assert result.structural_total == result.structural_indexed == 1
+    assert (result.facet_total, result.facet_supported) == (1, 0)
+
+
+@pytest.mark.parametrize(
+    "facet",
+    (
+        ["not-a-uuid", "1", ["unknown"]],
+        ["70000000-0000-4000-8000-000000000001", "2", ["short"]],
+        ["70000000-0000-4000-8000-000000000001"],
+        ["70000000-0000-4000-8000-000000000001", "not-a-count"],
+    ),
+)
+def test_unknown_or_malformed_facet_is_blocked(tmp_path, facet):
+    _fixture(tmp_path)
+    path = tmp_path / "Catalog" / "Товары" / "Catalog.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["header"][0][2] = facet
+    _write(path, data)
+
+    result = collect_v8unpack_metadata(tmp_path)
+
+    assert result.status == "partial"
+    assert result.structural_total == result.structural_indexed == 1
+    expected_count = int(facet[1]) if len(facet) > 1 and str(facet[1]).isdigit() else 1
+    assert result.facet_total == expected_count
+    assert result.facet_supported == 0
+    assert result.facets[0]["classification"] == "blocked"
 
 
 def test_index_build_and_update_replace_json_layer(tmp_path, monkeypatch):
@@ -873,6 +967,11 @@ def test_index_build_and_update_replace_json_layer(tmp_path, monkeypatch):
     assert stats["v8unpack_metadata_status"] == "complete"
     assert stats["v8unpack_metadata_producer_version"] == "1.2.9"
     assert stats["v8unpack_metadata_object_version"] == "802"
+    assert stats["v8unpack_metadata_facet_total"] == 0
+    assert stats["v8unpack_metadata_facet_supported"] == 0
+    assert stats["v8unpack_metadata_facet_unsupported"] == 0
+    assert json.loads(stats["v8unpack_metadata_facets_json"]) == []
+    assert stats["v8unpack_metadata_diagnostic_groups_total"] == 0
     assert json.loads(stats["v8unpack_metadata_snapshot_json"])
     assert stats["file_paths"] == 5
 
@@ -924,6 +1023,38 @@ def test_index_build_and_update_replace_json_layer(tmp_path, monkeypatch):
     reader.close()
     assert stats["file_paths"] == 4
     assert stats["v8unpack_metadata_status"] == "unsupported"
+
+
+def test_metadata_refresh_rolls_back_after_delete(tmp_path, monkeypatch):
+    root = tmp_path / "source"
+    _fixture(root)
+    monkeypatch.setenv("RLM_INDEX_DIR", str(tmp_path / "index"))
+    db_path = IndexBuilder().build(str(root), build_calls=False, build_metadata=True, build_fts=False)
+
+    with sqlite3.connect(db_path) as conn:
+        before_objects = conn.execute("SELECT * FROM metadata_objects ORDER BY rowid").fetchall()
+        before_meta = conn.execute(
+            "SELECT key,value FROM index_meta WHERE key LIKE 'v8unpack_metadata_%' ORDER BY key"
+        ).fetchall()
+        broken = collect_v8unpack_metadata(root)
+        broken.metadata_objects = [("invalid",)]
+        monkeypatch.setattr(bsl_index, "collect_v8unpack_metadata", lambda *_args, **_kwargs: broken)
+
+        with pytest.raises(sqlite3.ProgrammingError):
+            bsl_index._refresh_v8unpack_metadata(
+                conn,
+                str(root),
+                build_metadata=True,
+                build_synonyms=True,
+            )
+
+        assert conn.execute("SELECT * FROM metadata_objects ORDER BY rowid").fetchall() == before_objects
+        assert (
+            conn.execute(
+                "SELECT key,value FROM index_meta WHERE key LIKE 'v8unpack_metadata_%' ORDER BY key"
+            ).fetchall()
+            == before_meta
+        )
 
 
 @pytest.mark.parametrize("marker", ["", None, 42])
@@ -1069,7 +1200,12 @@ def test_cf_and_edt_build_publish_not_applicable_without_v8_payload(tmp_path, mo
         "v8unpack_metadata_structural_total",
         "v8unpack_metadata_structural_indexed",
         "v8unpack_metadata_structural_failed",
+        "v8unpack_metadata_facet_total",
+        "v8unpack_metadata_facet_supported",
+        "v8unpack_metadata_facet_unsupported",
+        "v8unpack_metadata_facets_json",
         "v8unpack_metadata_unsupported_count",
+        "v8unpack_metadata_diagnostic_groups_total",
     }
 
 

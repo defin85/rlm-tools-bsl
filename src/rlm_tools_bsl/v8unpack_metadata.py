@@ -31,11 +31,97 @@ V8UNPACK_DIAGNOSTIC_ROLES = {
         }
     ),
     "unsupported_header_facet": frozenset(),
+    "supported_header_facet": frozenset(),
     "unresolved_metadata_uuid": frozenset({"type"}),
     "unsupported_json_role": frozenset({"filename"}),
 }
 OWNER_OBJECT_VERSION_OVERRIDES = {
     "CommonForm": frozenset({"13"}),
+}
+
+# Closed XML↔JSON evidence registry for obj_version 802 owner header facets.
+# Values are (classification, XML semantic, target projection, supported).
+V8UNPACK_FACET_CONTRACT_802: dict[tuple[str, int | None, str], tuple[str, str, str | None, bool]] = {
+    ("Catalog", 3, "3daea016-69b7-4ed4-9453-127911372fe6"): (
+        "informational",
+        "Template",
+        None,
+        False,
+    ),
+    ("Catalog", 4, "4fe87c89-9ad4-43f6-9fdb-9dc83b3879c6"): (
+        "informational",
+        "Command",
+        None,
+        False,
+    ),
+    ("Catalog", 7, "fdf816d2-1ead-11d5-b975-0050bae0a95d"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("Document", 4, "3daea016-69b7-4ed4-9453-127911372fe6"): (
+        "informational",
+        "Template",
+        None,
+        False,
+    ),
+    ("Document", 6, "b544fc6a-2ba3-4885-8fb2-cb289fb6d65e"): (
+        "informational",
+        "Command",
+        None,
+        False,
+    ),
+    ("Document", 7, "fb880e93-47d7-4127-9357-a20e69c17545"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("InformationRegister", 5, "13134204-f60b-11d5-a3c7-0050bae0a776"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("InformationRegister", 6, "3daea016-69b7-4ed4-9453-127911372fe6"): (
+        "informational",
+        "Template",
+        None,
+        False,
+    ),
+    ("InformationRegister", 8, "b44ba719-945c-445c-8aab-1088fa4df16e"): (
+        "informational",
+        "Command",
+        None,
+        False,
+    ),
+    ("AccumulationRegister", 8, "b64d9a44-1642-11d6-a3c7-0050bae0a776"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("AccountingRegister", 8, "d3b5d6eb-4ea2-4610-a3e2-624d4e815934"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("ChartOfCharacteristicType", 7, "eb2b78a8-40a6-4b7e-b1b3-6ca9966cbc94"): (
+        "projected",
+        "Form",
+        "form_elements",
+        True,
+    ),
+    ("CommonForm", None, "obj_version:9"): ("projected", "Form", "form_elements", True),
+    ("CommonForm", None, "obj_version:12"): ("projected", "Form", "form_elements", True),
+    ("Constant", 13, "ConstantValueKey"): (
+        "blocked",
+        "GeneratedType",
+        None,
+        False,
+    ),
 }
 
 # kind -> (SQLite category, canonical reference head)
@@ -111,6 +197,14 @@ _STRUCTURAL_SYNONYM_PREFIX = {
 }
 
 TABULAR_ATTRIBUTE_TAG = "888744e1-b616-11d4-9436-004095e12fc7"
+_FORM_KIND_BY_FAMILY = {
+    "AccountingRegister": "AccountingRegisterForm",
+    "AccumulationRegister": "AccumulationRegisterForm",
+    "Catalog": "CatalogForm",
+    "ChartOfCharacteristicType": "ChartOfCharacteristicTypeForm",
+    "Document": "DocumentForm",
+    "InformationRegister": "InformationRegisterForm",
+}
 
 # Exact TypeId positions under header[0][1]. Only positions observed in paired
 # XML/JSON are declared; absent forms are not guessed.
@@ -299,6 +393,7 @@ class V8UnpackMetadataResult:
     object_synonyms: list[tuple] = field(default_factory=list)
     metadata_references: list[tuple] = field(default_factory=list)
     diagnostics: list[dict] = field(default_factory=list)
+    facets: list[dict] = field(default_factory=list)
     snapshot: list[dict] = field(default_factory=list)
     read_paths: set[str] = field(default_factory=set)
     generated_type_coverage: set[tuple[str, str, str]] = field(default_factory=set)
@@ -309,6 +404,10 @@ class V8UnpackMetadataResult:
     identity_indexed: int = 0
     structural_total: int = 0
     structural_indexed: int = 0
+    facet_total: int = 0
+    facet_supported: int = 0
+    unsupported_count: int = 0
+    diagnostic_groups_total: int = 0
 
     def index_meta(self) -> dict[str, str]:
         return {
@@ -322,7 +421,14 @@ class V8UnpackMetadataResult:
             "v8unpack_metadata_structural_total": str(self.structural_total),
             "v8unpack_metadata_structural_indexed": str(self.structural_indexed),
             "v8unpack_metadata_structural_failed": str(self.structural_total - self.structural_indexed),
-            "v8unpack_metadata_unsupported_count": str(sum(d["count"] for d in self.diagnostics)),
+            "v8unpack_metadata_facet_total": str(self.facet_total),
+            "v8unpack_metadata_facet_supported": str(self.facet_supported),
+            "v8unpack_metadata_facet_unsupported": str(self.facet_total - self.facet_supported),
+            "v8unpack_metadata_facets_json": json.dumps(
+                self.facets, ensure_ascii=False, separators=(",", ":")
+            ),
+            "v8unpack_metadata_unsupported_count": str(self.unsupported_count),
+            "v8unpack_metadata_diagnostic_groups_total": str(self.diagnostic_groups_total),
             "v8unpack_metadata_diagnostics_json": json.dumps(
                 self.diagnostics, ensure_ascii=False, separators=(",", ":")
             ),
@@ -369,6 +475,41 @@ def read_v8unpack_json(root: str | Path, path: str | Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError(f"JSON root must be an object: {candidate}")
     return value
+
+
+def _projected_forms(root: Path) -> tuple[set[str], set[tuple[str, str]]]:
+    uuids: set[str] = set()
+    common_forms: set[tuple[str, str]] = set()
+    entries = [
+        ("CommonForm", path.name, path, "CommonForm")
+        for path in sorted((root / "CommonForm").iterdir(), key=lambda item: item.name)
+        if path.is_dir()
+    ] if (root / "CommonForm").is_dir() else []
+    for family, form_kind in _FORM_KIND_BY_FAMILY.items():
+        family_dir = root / family
+        if not family_dir.is_dir():
+            continue
+        for owner_dir in sorted((path for path in family_dir.iterdir() if path.is_dir()), key=lambda path: path.name):
+            forms_dir = owner_dir / form_kind
+            if not forms_dir.is_dir():
+                continue
+            entries.extend(
+                (family, owner_dir.name, form_dir, form_kind)
+                for form_dir in sorted((path for path in forms_dir.iterdir() if path.is_dir()), key=lambda path: path.name)
+            )
+    for family, owner, form_dir, form_kind in entries:
+        try:
+            main = read_v8unpack_json(root, form_dir / f"{form_kind}.json")
+            elements = read_v8unpack_json(root, form_dir / f"{form_kind}.elem.json")
+            identity = read_v8unpack_json(root, form_dir / f"{form_kind}.id.json")
+            if main.get("name") != form_dir.name or set(elements) != {"params", "props", "commands", "tree", "data"}:
+                continue
+            uuids.add(_uuid(identity["uuid"]))
+            if family == "CommonForm":
+                common_forms.add((family, owner))
+        except (KeyError, OSError, ValueError, json.JSONDecodeError):
+            continue
+    return uuids, common_forms
 
 
 def _unquote(value: object) -> str:
@@ -495,14 +636,64 @@ def _diagnostics(events: list[tuple[str, str, str]]) -> list[dict]:
         if roles is None:
             raise ValueError(f"unknown diagnostic code: {code}")
         if role not in roles:
-            if code != "unsupported_header_facet":
+            if code not in {"unsupported_header_facet", "supported_header_facet"}:
                 raise ValueError(f"unknown diagnostic role: {code}/{role}")
-            _uuid(role)
+            if code == "supported_header_facet" and any(role == key[2] for key in V8UNPACK_FACET_CONTRACT_802):
+                pass
+            else:
+                _uuid(role)
         grouped.setdefault((code, role), []).append(example)
     result = []
     for (code, role), examples in sorted(grouped.items()):
         result.append({"code": code, "role": role, "count": len(examples), "examples": sorted(set(examples))[:5]})
     return result[:50]
+
+
+def _apply_diagnostics(
+    result: V8UnpackMetadataResult,
+    events: list[tuple[str, str, str]],
+) -> None:
+    result.diagnostics = _diagnostics(events)
+    result.unsupported_count = sum(code != "supported_header_facet" for code, _role, _example in events)
+    result.diagnostic_groups_total = len({(code, role) for code, role, _example in events})
+    if result.unsupported_count and result.status == "complete":
+        result.status = "partial"
+
+
+def _facets(
+    events: list[tuple[str, int | None, str, str, str, str | None, bool, str]],
+) -> list[dict]:
+    grouped: dict[tuple[str, int | None, str, str, str, str | None, bool], list[str]] = {}
+    for family, index, tag, classification, semantic, projection, supported, example in events:
+        if classification not in {"core", "projected", "informational", "blocked"}:
+            raise ValueError(f"unknown facet classification: {classification}")
+        grouped.setdefault(
+            (family, index, tag, classification, semantic, projection, supported),
+            [],
+        ).append(example)
+    return [
+        {
+            "family": family,
+            "header_index": index,
+            "tag": tag,
+            "classification": classification,
+            "semantic": semantic,
+            "projection": projection,
+            "supported": supported,
+            "count": len(examples),
+            "owners": len(set(examples)),
+            "examples": sorted(set(examples))[:5],
+        }
+        for (
+            family,
+            index,
+            tag,
+            classification,
+            semantic,
+            projection,
+            supported,
+        ), examples in sorted(grouped.items(), key=lambda item: tuple(str(value) for value in item[0]))
+    ]
 
 
 def _snapshot_row(root: Path, path: Path, owner: str) -> dict:
@@ -519,13 +710,14 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
     root_path = Path(root).resolve()
     result = V8UnpackMetadataResult()
     events: list[tuple[str, str, str]] = []
+    facet_events: list[tuple[str, int | None, str, str, str, str | None, bool, str]] = []
     root_file = root_path / "Configuration.json"
     try:
         config = read_v8unpack_json(root_path, root_file)
     except (OSError, ValueError, json.JSONDecodeError):
         result.status = "unsupported"
         events.append(("malformed_required_json", "configuration", "Configuration.json"))
-        result.diagnostics = _diagnostics(events)
+        _apply_diagnostics(result, events)
         return result
     result.read_paths.add("Configuration.json")
     marker, object_version = config.get("v8unpack"), config.get("obj_version")
@@ -535,17 +727,18 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
     if producers is None:
         result.status = "unsupported"
         events.append(("unsupported_object_version", "configuration", "Configuration.json"))
-        result.diagnostics = _diagnostics(events)
+        _apply_diagnostics(result, events)
         return result
     if marker not in producers:
         result.status = "unsupported"
         events.append(("unsupported_v8unpack_version", "configuration", "Configuration.json"))
-        result.diagnostics = _diagnostics(events)
+        _apply_diagnostics(result, events)
         return result
     result.config_name = str(config.get("name") or "")
     name2 = config.get("name2")
     result.config_synonym = str(name2.get("ru") or "").replace('""', '"').strip() if isinstance(name2, dict) else ""
     result.snapshot.append(_snapshot_row(root_path, root_file, "configuration"))
+    projected_form_uuids, projected_common_forms = _projected_forms(root_path)
 
     owners: list[tuple[str, str, Path, dict, str]] = []
     for kind, (category, ref_head) in V8UNPACK_METADATA_IDENTITY_MAP.items():
@@ -605,7 +798,33 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
             positions, id_keys = generated_type_contract(object_version, kind)
             owner_version = main_data.get("obj_version")
             if owner_version != object_version and owner_version not in OWNER_OBJECT_VERSION_OVERRIDES.get(kind, ()):
-                events.append(("unsupported_header_shape", "owner", rel_main))
+                if object_version == "802" and kind == "CommonForm" and owner_version in {"9", "12"}:
+                    tag = f"obj_version:{owner_version}"
+                    classification, semantic, projection, supported = V8UNPACK_FACET_CONTRACT_802[
+                        (kind, None, tag)
+                    ]
+                    form_supported = supported and (kind, object_name) in projected_common_forms
+                    facet_events.append(
+                        (
+                            kind,
+                            None,
+                            tag,
+                            classification,
+                            semantic,
+                            projection,
+                            form_supported,
+                            rel_main,
+                        )
+                    )
+                    events.append(
+                        (
+                            "supported_header_facet" if form_supported else "unsupported_header_facet",
+                            tag,
+                            rel_main,
+                        )
+                    )
+                else:
+                    events.append(("unsupported_header_shape", "owner", rel_main))
                 continue
 
             header = main_data.get("header")
@@ -630,6 +849,22 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
                     type_uuid = _uuid(_at(header, (0, 1, index)))
                 except (ValueError, TypeError):
                     events.append(("unsupported_header_shape", "owner", rel_main))
+                    if object_version == "802" and kind == "Constant" and index == 13:
+                        classification, semantic, projection, supported = V8UNPACK_FACET_CONTRACT_802[
+                            (kind, index, "ConstantValueKey")
+                        ]
+                        facet_events.append(
+                            (
+                                kind,
+                                index,
+                                "ConstantValueKey",
+                                classification,
+                                semantic,
+                                projection,
+                                supported,
+                                rel_main,
+                            )
+                        )
                     generated_rows = []
                     break
                 generated_rows.append((type_uuid, str(index), type_form))
@@ -677,17 +912,77 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
             owner_header = _at(header, (0,))
         except (ValueError, TypeError):
             owner_header = []
-        for index, facet in enumerate(owner_header if isinstance(owner_header, list) else []):
-            if index in supported_group_indexes or not isinstance(facet, list) or len(facet) < 2:
+        for index, facet in enumerate(
+            owner_header if object_version == "802" and isinstance(owner_header, list) else []
+        ):
+            if index in supported_group_indexes or not isinstance(facet, list):
+                continue
+            try:
+                malformed_uuid = _uuid(facet[0])
+            except (IndexError, ValueError, TypeError):
+                malformed_uuid = None
+            if len(facet) < 2:
+                if malformed_uuid:
+                    events.append(("unsupported_header_shape", "owner", rel))
+                    facet_events.append((kind, index, malformed_uuid, "blocked", "Unknown", None, False, rel))
+                continue
+            try:
+                facet_count = int(facet[1])
+            except (ValueError, TypeError):
+                if malformed_uuid:
+                    events.append(("unsupported_header_shape", "owner", rel))
+                    facet_events.append((kind, index, malformed_uuid, "blocked", "Unknown", None, False, rel))
+                continue
+            if facet_count <= 0:
                 continue
             try:
                 facet_uuid = _uuid(facet[0])
-                facet_count = int(facet[1])
+                facet_tag_valid = True
             except (ValueError, TypeError):
+                facet_uuid = f"invalid:{facet[0]}"
+                facet_tag_valid = False
+            if len(facet) != facet_count + 2:
+                events.extend(("unsupported_header_shape", "owner", rel) for _ in range(facet_count))
+                facet_events.extend(
+                    (kind, index, facet_uuid, "blocked", "Unknown", None, False, rel)
+                    for _ in range(facet_count)
+                )
                 continue
-            if facet_count > 0 and len(facet) == facet_count + 2:
-                owner_ok = False
-                events.extend(("unsupported_header_facet", facet_uuid, rel) for _ in range(facet_count))
+            if facet_count > 0:
+                contract = (
+                    V8UNPACK_FACET_CONTRACT_802.get((kind, index, facet_uuid))
+                    if object_version == "802"
+                    else None
+                )
+                classification, semantic, projection, supported = contract or (
+                    "blocked",
+                    "Unknown",
+                    None,
+                    False,
+                )
+                for item in facet[2:]:
+                    item_supported = supported
+                    if semantic == "Form":
+                        try:
+                            item_supported = supported and _uuid(item) in projected_form_uuids
+                        except (TypeError, ValueError):
+                            item_supported = False
+                    facet_events.append(
+                        (kind, index, facet_uuid, classification, semantic, projection, item_supported, rel)
+                    )
+                    events.append(
+                        (
+                            (
+                                "supported_header_facet"
+                                if item_supported
+                                else "unsupported_header_facet"
+                                if facet_tag_valid
+                                else "unsupported_header_shape"
+                            ),
+                            facet_uuid if facet_tag_valid else "owner",
+                            rel,
+                        )
+                    )
         for group_index, group_tag, row_kind in STRUCTURAL_CONTRACT[kind]:
             try:
                 group = _at(header, (0, group_index))
@@ -774,7 +1069,8 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
     result.object_synonyms.sort()
     result.metadata_references.sort()
     result.snapshot.sort(key=lambda row: row["path"])
-    result.diagnostics = _diagnostics(events)
-    if result.diagnostics:
-        result.status = "partial"
+    result.facets = _facets(facet_events)
+    result.facet_total = sum(facet["count"] for facet in result.facets)
+    result.facet_supported = sum(facet["count"] for facet in result.facets if facet["supported"])
+    _apply_diagnostics(result, events)
     return result

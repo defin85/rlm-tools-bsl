@@ -41,7 +41,7 @@ from rlm_tools_bsl.bsl_xml_parsers import (
 
 logger = logging.getLogger(__name__)
 
-BUILDER_VERSION = 19
+BUILDER_VERSION = 20
 
 
 _active_locks: dict[str, "_BuildLock"] = {}
@@ -4904,7 +4904,12 @@ def _refresh_v8unpack_metadata(
                 "v8unpack_metadata_structural_total": "0",
                 "v8unpack_metadata_structural_indexed": "0",
                 "v8unpack_metadata_structural_failed": "0",
+                "v8unpack_metadata_facet_total": "0",
+                "v8unpack_metadata_facet_supported": "0",
+                "v8unpack_metadata_facet_unsupported": "0",
+                "v8unpack_metadata_facets_json": "[]",
                 "v8unpack_metadata_unsupported_count": "0",
+                "v8unpack_metadata_diagnostic_groups_total": "0",
             }
         if current_format is SourceFormat.V8UNPACK or recovery_pending:
             root_file = Path(base_path) / "Configuration.json"
@@ -8305,7 +8310,12 @@ def _zero_stats() -> dict:
         "v8unpack_metadata_structural_total": None,
         "v8unpack_metadata_structural_indexed": None,
         "v8unpack_metadata_structural_failed": None,
+        "v8unpack_metadata_facet_total": None,
+        "v8unpack_metadata_facet_supported": None,
+        "v8unpack_metadata_facet_unsupported": None,
+        "v8unpack_metadata_facets_json": None,
         "v8unpack_metadata_unsupported_count": None,
+        "v8unpack_metadata_diagnostic_groups_total": None,
         "v8unpack_metadata_diagnostics_json": None,
         "v8unpack_metadata_snapshot_json": None,
         "v8unpack_metadata_recovery_pending": None,
@@ -9700,7 +9710,12 @@ class IndexReader:
                 "v8unpack_metadata_structural_total",
                 "v8unpack_metadata_structural_indexed",
                 "v8unpack_metadata_structural_failed",
+                "v8unpack_metadata_facet_total",
+                "v8unpack_metadata_facet_supported",
+                "v8unpack_metadata_facet_unsupported",
+                "v8unpack_metadata_facets_json",
                 "v8unpack_metadata_unsupported_count",
+                "v8unpack_metadata_diagnostic_groups_total",
                 "v8unpack_metadata_diagnostics_json",
                 "v8unpack_metadata_snapshot_json",
                 "v8unpack_metadata_recovery_pending",
@@ -9730,7 +9745,11 @@ class IndexReader:
                 "v8unpack_metadata_structural_total",
                 "v8unpack_metadata_structural_indexed",
                 "v8unpack_metadata_structural_failed",
+                "v8unpack_metadata_facet_total",
+                "v8unpack_metadata_facet_supported",
+                "v8unpack_metadata_facet_unsupported",
                 "v8unpack_metadata_unsupported_count",
+                "v8unpack_metadata_diagnostic_groups_total",
                 "v8unpack_form_total",
                 "v8unpack_form_indexed",
                 "v8unpack_form_failed",

@@ -509,7 +509,7 @@ def refs_cf_fixture(tmp_path, monkeypatch):
 
 class TestIndexV12:
     def test_builder_version_is_current(self):
-        assert BUILDER_VERSION == 19
+        assert BUILDER_VERSION == 20
 
     def test_metadata_references_categories_set(self):
         # DefinedTypes must be a top-level trigger category for v12

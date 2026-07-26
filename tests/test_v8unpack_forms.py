@@ -359,7 +359,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
     assert filtered[0]["projections"] == parsed[0]["projections"]
 
     with sqlite3.connect(db_path) as conn:
-        conn.execute("UPDATE index_meta SET value='18' WHERE key IN ('builder_version', 'version')")
+        conn.execute("UPDATE index_meta SET value='19' WHERE key IN ('builder_version', 'version')")
     delta = builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
         flags = dict(
@@ -368,9 +368,9 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
                 "WHERE key IN ('builder_version', 'has_calls', 'has_fts', 'has_synonyms')"
             )
         )
-    assert delta["rebuild_reason"] == "schema upgrade v18->19"
+    assert delta["rebuild_reason"] == "schema upgrade v19->20"
     assert flags == {
-        "builder_version": "19",
+        "builder_version": "20",
         "has_calls": "0",
         "has_fts": "0",
         "has_synonyms": "0",

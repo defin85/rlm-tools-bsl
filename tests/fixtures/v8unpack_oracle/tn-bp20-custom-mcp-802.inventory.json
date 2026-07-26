@@ -1,0 +1,53 @@
+{
+  "baseline": {
+    "identity": {"failed": 0, "indexed": 2417, "total": 2417},
+    "structural": {"failed": 559, "indexed": 130, "total": 689},
+    "unsupported_count": 1787
+  },
+  "commands": [
+    "1cv8 DESIGNER /Slocalhost/tn_bp20_custom_mcp /DumpCfg <cf>",
+    "1cv8 DESIGNER /Slocalhost/tn_bp20_custom_mcp /DumpConfigToFiles <xml-root>",
+    "python -m rlm_tools_bsl.v8unpack_oracle metadata-inventory --root <json-root> --manifest tests/fixtures/v8unpack_oracle/tn-bp20-custom-mcp-802.inventory.json"
+  ],
+  "content_sha256": "ae1162f98d76899eb04360e0e1d1a4cbc7cd1d4f8751322ebf2869df2c20b4c6",
+  "current": {
+    "facets": {"supported": 1388, "total": 1787, "unsupported": 399},
+    "identity": {"failed": 0, "indexed": 2417, "total": 2417},
+    "status": "partial",
+    "structural": {"failed": 0, "indexed": 689, "total": 689},
+    "unsupported_count": 399
+  },
+  "evidence": {
+    "active_json_input_tree_sha256": "fe5060eee2f457540371e26cb9194069299594c0a7afd69d74fe98c658830dd6",
+    "paired_cf_sha256": "413b8d446d748eef99a8972eee0e4bd9a3963b1cc30d1f9ec748104f941a6393",
+    "reexport_cf_sha256": "413b8d446d748eef99a8972eee0e4bd9a3963b1cc30d1f9ec748104f941a6393",
+    "reexport_command": "1cv8 DESIGNER /Slocalhost/tn_bp20_custom_mcp /DumpCfg <fresh-cf>",
+    "paired_json_input_tree_sha256": "94f4ab816a84a9b0525162b19b4d38f280812482e31400f698c4a15f51e139fe",
+    "paired_manifest_file": "bp-802.manifest.json",
+    "paired_xml_input_tree_sha256": "79a03515bb737715a1aae76bae0b61175ac5f86c86e110f6a61e4eb117d54b25",
+    "platform_version": "8.3.27.1989",
+    "resolution": "user-approved cluster re-export schema bridge after exact active source proved incomplete",
+    "scope": "paired cluster CF/XML proves closed family-position-UUID semantics; active JSON proves counts, positional paths and target form UUIDs"
+  },
+  "facets": [
+    {"classification": "projected", "count": 1, "examples": ["AccountingRegister/Хозрасчетный/AccountingRegister.json"], "family": "AccountingRegister", "header_index": 8, "owners": 1, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "d3b5d6eb-4ea2-4610-a3e2-624d4e815934"},
+    {"classification": "projected", "count": 36, "examples": ["AccumulationRegister/АвансовыеПлатежиИностранцевПоНДФЛ/AccumulationRegister.json", "AccumulationRegister/ВзаиморасчетыСДепонентамиОрганизаций/AccumulationRegister.json", "AccumulationRegister/ВзаиморасчетыСРаботникамиОрганизаций/AccumulationRegister.json", "AccumulationRegister/ВыпускПродукцииУслуг/AccumulationRegister.json", "AccumulationRegister/ЕСНИсчисленный/AccumulationRegister.json"], "family": "AccumulationRegister", "header_index": 8, "owners": 36, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "b64d9a44-1642-11d6-a3c7-0050bae0a776"},
+    {"classification": "informational", "count": 69, "examples": ["Catalog/Валюты/Catalog.json", "Catalog/ВидыНалоговИПлатежейВБюджет/Catalog.json", "Catalog/ВидыОтправляемыхДокументов/Catalog.json", "Catalog/ДоговорыКонтрагентов/Catalog.json", "Catalog/ДокументыУдостоверяющиеЛичность/Catalog.json"], "family": "Catalog", "header_index": 3, "owners": 21, "projection": null, "semantic": "Template", "supported": false, "tag": "3daea016-69b7-4ed4-9453-127911372fe6"},
+    {"classification": "informational", "count": 9, "examples": ["Catalog/ОбъектыЭксплуатации/Catalog.json", "Catalog/СертификатыЭЦП/Catalog.json", "Catalog/СоглашенияОбИспользованииЭД/Catalog.json", "Catalog/УчетныеЗаписиЭлектроннойПочты/Catalog.json", "Catalog/ЭДПрисоединенныеФайлы/Catalog.json"], "family": "Catalog", "header_index": 4, "owners": 5, "projection": null, "semantic": "Command", "supported": false, "tag": "4fe87c89-9ad4-43f6-9fdb-9dc83b3879c6"},
+    {"classification": "projected", "count": 416, "examples": ["Catalog/scanТипыДокументов/Catalog.json", "Catalog/scanХранилищеДополнительнойИнформации/Catalog.json", "Catalog/АдресныеСокращения/Catalog.json", "Catalog/Банки/Catalog.json", "Catalog/БанковскиеСчета/Catalog.json"], "family": "Catalog", "header_index": 7, "owners": 134, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "fdf816d2-1ead-11d5-b975-0050bae0a95d"},
+    {"classification": "projected", "count": 11, "examples": ["ChartOfCharacteristicType/ВидыСубконтоХозрасчетные/ChartOfCharacteristicType.json", "ChartOfCharacteristicType/НазначенияСвойствКатегорийОбъектов/ChartOfCharacteristicType.json", "ChartOfCharacteristicType/НастройкиПользователей/ChartOfCharacteristicType.json", "ChartOfCharacteristicType/СвойстваОбъектов/ChartOfCharacteristicType.json"], "family": "ChartOfCharacteristicType", "header_index": 7, "owners": 4, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "eb2b78a8-40a6-4b7e-b1b3-6ca9966cbc94"},
+    {"classification": "projected", "count": 1, "examples": ["CommonForm/УстановкаДатыЗапретаИзмененияДанных/CommonForm.json"], "family": "CommonForm", "header_index": null, "owners": 1, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "obj_version:12"},
+    {"classification": "projected", "count": 29, "examples": ["CommonForm/НастройкаПараметровОбращенияВОтделТехническойПоддержки/CommonForm.json", "CommonForm/НастройкаСистемы/CommonForm.json", "CommonForm/НастройкаФайлаОбновленияКонфигурации/CommonForm.json", "CommonForm/НастройкиМонитораОбменаДанными/CommonForm.json", "CommonForm/РедактированиеДокументаУдостоверяющегоЛичность/CommonForm.json"], "family": "CommonForm", "header_index": null, "owners": 29, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "obj_version:9"},
+    {"classification": "blocked", "count": 83, "examples": ["Constant/АлгоритмПодписи/Constant.json", "Constant/АлгоритмХеширования/Constant.json", "Constant/АлгоритмШифрования/Constant.json", "Constant/ВалютаРегламентированногоУчета/Constant.json", "Constant/ВыполнитьЗагрузкуПараметровРаботыПрограммы/Constant.json"], "family": "Constant", "header_index": 13, "owners": 83, "projection": null, "semantic": "GeneratedType", "supported": false, "tag": "ConstantValueKey"},
+    {"classification": "informational", "count": 207, "examples": ["Document/АвансовыйОтчет/Document.json", "Document/АктОбОказанииПроизводственныхУслуг/Document.json", "Document/АктСверкиВзаиморасчетов/Document.json", "Document/АнкетаЗастрахованногоЛица/Document.json", "Document/ВводНачальныхОстатков/Document.json"], "family": "Document", "header_index": 4, "owners": 83, "projection": null, "semantic": "Template", "supported": false, "tag": "3daea016-69b7-4ed4-9453-127911372fe6"},
+    {"classification": "informational", "count": 5, "examples": ["Document/ПакетЭД/Document.json", "Document/УведомлениеОбОстаткахПрослеживаемыхТоваров/Document.json", "Document/УдалитьЭлектронныйДокументИсходящий/Document.json", "Document/ЭлектронныйДокументВходящий/Document.json", "Document/ЭлектронныйДокументИсходящий/Document.json"], "family": "Document", "header_index": 6, "owners": 5, "projection": null, "semantic": "Command", "supported": false, "tag": "b544fc6a-2ba3-4885-8fb2-cb289fb6d65e"},
+    {"classification": "projected", "count": 650, "examples": ["Document/CF_СведенияОбУдержанномНДФЛ/Document.json", "Document/CF_СписаниеРБП/Document.json", "Document/АвансовыйОтчет/Document.json", "Document/АвансовыйПлатежИностранцаПоНДФЛ/Document.json", "Document/АктОбОказанииПроизводственныхУслуг/Document.json"], "family": "Document", "header_index": 7, "owners": 196, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "fb880e93-47d7-4127-9357-a20e69c17545"},
+    {"classification": "projected", "count": 244, "examples": ["InformationRegister/scanТипыПривязокСкановКДокументам/InformationRegister.json", "InformationRegister/АдресныеОбъекты/InformationRegister.json", "InformationRegister/АдресныйКлассификатор/InformationRegister.json", "InformationRegister/АмортизационныеГруппыОКОФ/InformationRegister.json", "InformationRegister/АрхивДанныхРегламентированнойОтчетности/InformationRegister.json"], "family": "InformationRegister", "header_index": 5, "owners": 184, "projection": "form_elements", "semantic": "Form", "supported": true, "tag": "13134204-f60b-11d5-a3c7-0050bae0a776"},
+    {"classification": "informational", "count": 23, "examples": ["InformationRegister/АдресныеОбъекты/InformationRegister.json", "InformationRegister/АдресныйКлассификатор/InformationRegister.json", "InformationRegister/ИсторияАдресныхОбъектов/InformationRegister.json", "InformationRegister/РегистрацияЗемельныхУчастков/InformationRegister.json", "InformationRegister/РегистрацияТранспортныхСредств/InformationRegister.json"], "family": "InformationRegister", "header_index": 6, "owners": 13, "projection": null, "semantic": "Template", "supported": false, "tag": "3daea016-69b7-4ed4-9453-127911372fe6"},
+    {"classification": "informational", "count": 3, "examples": ["InformationRegister/АдресныеОбъекты/InformationRegister.json"], "family": "InformationRegister", "header_index": 8, "owners": 1, "projection": null, "semantic": "Command", "supported": false, "tag": "b44ba719-945c-445c-8aab-1088fa4df16e"}
+  ],
+  "project": "tn_bp20_custom_mcp",
+  "root_object_version": "802",
+  "schema": "v8unpack_metadata_inventory_v1",
+  "v8unpack_version": "1.2.9"
+}

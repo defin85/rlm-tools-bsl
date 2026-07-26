@@ -21,6 +21,7 @@ from rlm_tools_bsl.bsl_index import (
 from rlm_tools_bsl.bsl_xml_parsers import canonicalize_type_ref
 from rlm_tools_bsl.v8unpack_metadata import (
     STRUCTURAL_CONTRACT,
+    V8UNPACK_FACET_CONTRACT_802,
     V8UNPACK_DIAGNOSTIC_ROLES,
     V8UNPACK_METADATA_CONTRACTS,
     V8UNPACK_METADATA_IDENTITY_MAP,
@@ -31,8 +32,10 @@ from rlm_tools_bsl.v8unpack_metadata import (
     generated_type_contract,
 )
 
-SCHEMA_VERSION = 1
-COMPARATOR_VERSION = 1
+SCHEMA_VERSION = 2
+COMPARATOR_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {1, SCHEMA_VERSION}
+SUPPORTED_COMPARATOR_VERSIONS = {1, COMPARATOR_VERSION}
 FORM_MANIFEST_SCHEMA = "v8unpack_forms_802_v2"
 FORBIDDEN_DIAGNOSTICS = frozenset(
     {
@@ -306,8 +309,16 @@ def compare(
             "indexed": json_result.structural_indexed,
             "failed": json_result.structural_total - json_result.structural_indexed,
         },
+        "facets": {
+            "total": json_result.facet_total,
+            "supported": json_result.facet_supported,
+            "unsupported": json_result.facet_total - json_result.facet_supported,
+            "inventory": json_result.facets,
+        },
         "diagnostics": json_result.diagnostics,
-        "unsupported_count": sum(diagnostic["count"] for diagnostic in json_result.diagnostics),
+        "unsupported_count": json_result.unsupported_count,
+        "diagnostic_groups_total": json_result.diagnostic_groups_total,
+        "diagnostics_truncated": json_result.diagnostic_groups_total > len(json_result.diagnostics),
         "forbidden_diagnostics": forbidden,
         "assertions": assertions,
         "zero_delta": zero_delta,
@@ -337,8 +348,11 @@ def compare(
         "status": json_result.status,
         "identity": report_payload["identity"],
         "structural": report_payload["structural"],
+        "facets": report_payload["facets"],
         "diagnostics": json_result.diagnostics,
         "unsupported_count": report_payload["unsupported_count"],
+        "diagnostic_groups_total": report_payload["diagnostic_groups_total"],
+        "diagnostics_truncated": report_payload["diagnostics_truncated"],
         "coverage": coverage,
         "forbidden_diagnostics": forbidden,
         "assertions": assertions,
@@ -351,10 +365,14 @@ def compare(
 def _verify_manifest(path: str | Path) -> dict:
     manifest_path = Path(path)
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("schema_version") != SCHEMA_VERSION:
+    schema_version = manifest.get("schema_version")
+    comparator_version = manifest.get("comparator_version")
+    if schema_version not in SUPPORTED_SCHEMA_VERSIONS:
         raise ValueError("unsupported manifest schema")
-    if manifest.get("comparator_version") != COMPARATOR_VERSION:
+    if comparator_version not in SUPPORTED_COMPARATOR_VERSIONS:
         raise ValueError("unsupported comparator version")
+    if schema_version != comparator_version:
+        raise ValueError("manifest schema/comparator mismatch")
     if not manifest.get("zero_delta"):
         raise ValueError("manifest does not record a zero delta")
     if manifest.get("forbidden_diagnostics"):
@@ -370,14 +388,91 @@ def _verify_manifest(path: str | Path) -> dict:
         counters = manifest.get(name, {})
         if counters.get("failed") != counters.get("total", 0) - counters.get("indexed", 0):
             raise ValueError(f"invalid counters: {name}")
+    if schema_version >= 2:
+        facets = manifest.get("facets", {})
+        if facets.get("unsupported") != facets.get("total", 0) - facets.get("supported", 0):
+            raise ValueError("invalid counters: facets")
+        inventory = facets.get("inventory")
+        if not isinstance(inventory, list) or sum(row.get("count", 0) for row in inventory) != facets.get("total"):
+            raise ValueError("invalid facet inventory")
+        facet_keys = [
+            (
+                row.get("family"),
+                row.get("header_index"),
+                row.get("tag"),
+                row.get("classification"),
+                row.get("semantic"),
+                row.get("projection"),
+                row.get("supported"),
+            )
+            for row in inventory
+        ]
+        if facet_keys != sorted(facet_keys, key=lambda key: tuple(str(value) for value in key)):
+            raise ValueError("facet inventory is not deterministic")
+        if len(facet_keys) != len(set(facet_keys)):
+            raise ValueError("duplicate facet inventory row")
+        for row in inventory:
+            key = (row.get("family"), row.get("header_index"), row.get("tag"))
+            classification = row.get("classification")
+            supported = row.get("supported")
+            count = row.get("count")
+            owners = row.get("owners")
+            examples = row.get("examples")
+            if classification not in {"core", "projected", "informational", "blocked"}:
+                raise ValueError("invalid facet classification")
+            if not isinstance(supported, bool):
+                raise ValueError("invalid facet support")
+            if supported and (classification not in {"core", "projected"} or not row.get("projection")):
+                raise ValueError("facet support lacks a target projection")
+            contract = V8UNPACK_FACET_CONTRACT_802.get(key) if object_version == "802" else None
+            actual = (
+                classification,
+                row.get("semantic"),
+                row.get("projection"),
+                supported,
+            )
+            if contract is not None:
+                if contract != actual:
+                    raise ValueError("facet classification differs from paired coverage")
+            elif actual != ("blocked", "Unknown", None, False):
+                raise ValueError("unknown facet is not blocked")
+            if supported and contract != (
+                    row.get("classification"),
+                    row.get("semantic"),
+                    row.get("projection"),
+                    True,
+            ):
+                raise ValueError("facet support lacks paired coverage")
+            if classification in {"informational", "blocked"} and supported:
+                raise ValueError("non-projected facet marked supported")
+            if (
+                not isinstance(count, int)
+                or isinstance(count, bool)
+                or count <= 0
+                or not isinstance(owners, int)
+                or isinstance(owners, bool)
+                or not 0 < owners <= count
+                or not isinstance(examples, list)
+                or not examples
+                or len(examples) > min(5, owners)
+                or examples != sorted(set(examples))
+                or not all(isinstance(example, str) for example in examples)
+            ):
+                raise ValueError("invalid facet evidence")
     diagnostics = manifest.get("diagnostics", [])
     for diagnostic in diagnostics:
         code = diagnostic.get("code")
         role = diagnostic.get("role")
         roles = V8UNPACK_DIAGNOSTIC_ROLES.get(code)
-        if roles is None or (
-            role not in roles and not (code == "unsupported_header_facet" and isinstance(role, str) and _is_uuid(role))
-        ):
+        facet_role = (
+            code in {"unsupported_header_facet", "supported_header_facet"}
+            and isinstance(role, str)
+            and (
+                _is_uuid(role)
+                or any(role == key[2] for key in V8UNPACK_FACET_CONTRACT_802)
+            )
+        )
+        if roles is None or (role not in roles and not facet_role):
             raise ValueError("invalid diagnostic code or role")
         if (
             not isinstance(diagnostic.get("count"), int)
@@ -395,8 +490,26 @@ def _verify_manifest(path: str | Path) -> dict:
             or not all(isinstance(example, str) for example in examples)
         ):
             raise ValueError("invalid diagnostic examples")
-    if manifest.get("unsupported_count") != sum(diagnostic.get("count", 0) for diagnostic in diagnostics):
-        raise ValueError("invalid unsupported count")
+    visible_unsupported = sum(
+        diagnostic.get("count", 0)
+        for diagnostic in diagnostics
+        if diagnostic.get("code") != "supported_header_facet"
+    )
+    if schema_version == 1:
+        if manifest.get("unsupported_count") != visible_unsupported:
+            raise ValueError("invalid unsupported count")
+    else:
+        groups_total = manifest.get("diagnostic_groups_total")
+        truncated = manifest.get("diagnostics_truncated")
+        if (
+            not isinstance(groups_total, int)
+            or groups_total < len(diagnostics)
+            or len(diagnostics) != min(groups_total, 50)
+            or truncated != (groups_total > len(diagnostics))
+            or visible_unsupported > manifest.get("unsupported_count", -1)
+            or (not truncated and visible_unsupported != manifest.get("unsupported_count"))
+        ):
+            raise ValueError("invalid unsupported diagnostics")
     if diagnostics != sorted(diagnostics, key=lambda diagnostic: (diagnostic.get("code"), diagnostic.get("role"))):
         raise ValueError("diagnostics are not deterministic")
     for name in PROJECTIONS:
@@ -453,12 +566,16 @@ def _verify_manifest(path: str | Path) -> dict:
         "structural",
         "diagnostics",
         "unsupported_count",
+        "diagnostic_groups_total",
+        "diagnostics_truncated",
         "forbidden_diagnostics",
         "assertions",
         "zero_delta",
     ):
         if report.get(key) != manifest.get(key):
             raise ValueError(f"report content mismatch: {key}")
+    if schema_version >= 2 and report.get("facets") != manifest.get("facets"):
+        raise ValueError("report content mismatch: facets")
     for name in PROJECTIONS:
         report_projection = report["projections"][name]
         if (
@@ -502,6 +619,105 @@ def verify_manifests(paths: list[str | Path]) -> None:
         }
         if expected_structural - structural:
             raise ValueError("incomplete 803 structural coverage")
+
+
+def verify_metadata_inventory_manifest(path: str | Path) -> dict:
+    inventory_path = Path(path)
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    payload = dict(inventory)
+    content_sha256 = payload.pop("content_sha256", "")
+    if content_sha256 != _sha256(_json_bytes(payload)):
+        raise ValueError("metadata inventory content hash mismatch")
+    if inventory.get("schema") != "v8unpack_metadata_inventory_v1":
+        raise ValueError("unsupported metadata inventory schema")
+    evidence = inventory.get("evidence", {})
+    paired_file = evidence.get("paired_manifest_file")
+    if not isinstance(paired_file, str) or Path(paired_file).name != paired_file:
+        raise ValueError("invalid paired metadata manifest")
+    paired = _verify_manifest(inventory_path.parent / paired_file)
+    if (
+        evidence.get("paired_cf_sha256") != paired.get("cf_sha256")
+        or evidence.get("reexport_cf_sha256") != paired.get("cf_sha256")
+        or evidence.get("paired_xml_input_tree_sha256") != paired.get("xml_input_tree_sha256")
+        or evidence.get("paired_json_input_tree_sha256") != paired.get("json_input_tree_sha256")
+        or evidence.get("platform_version") != paired.get("platform_version")
+        or not isinstance(evidence.get("reexport_command"), str)
+        or "/DumpCfg" not in evidence["reexport_command"]
+        or not evidence.get("resolution")
+    ):
+        raise ValueError("metadata inventory paired evidence mismatch")
+    current = inventory.get("current", {})
+    baseline = inventory.get("baseline", {})
+    facets = inventory.get("facets")
+    facet_total = sum(row.get("count", 0) for row in facets) if isinstance(facets, list) else -1
+    facet_supported = (
+        sum(row.get("count", 0) for row in facets if row.get("supported")) if isinstance(facets, list) else -1
+    )
+    if (
+        not isinstance(facets, list)
+        or baseline
+        != {
+            "identity": {"total": 2417, "indexed": 2417, "failed": 0},
+            "structural": {"total": 689, "indexed": 130, "failed": 559},
+            "unsupported_count": 1787,
+        }
+        or facet_total != baseline.get("unsupported_count")
+        or facet_total != current.get("facets", {}).get("total")
+        or facet_supported != current.get("facets", {}).get("supported")
+        or facet_total - facet_supported != current.get("facets", {}).get("unsupported")
+        or current.get("unsupported_count") != current.get("facets", {}).get("unsupported")
+        or current.get("status") != ("partial" if current.get("unsupported_count") else "complete")
+        or current.get("facets", {}).get("unsupported")
+        != current.get("facets", {}).get("total", 0) - current.get("facets", {}).get("supported", 0)
+    ):
+        raise ValueError("invalid metadata facet inventory")
+    for row in facets:
+        count, owners, examples = row.get("count"), row.get("owners"), row.get("examples")
+        if (
+            not isinstance(count, int)
+            or isinstance(count, bool)
+            or count <= 0
+            or not isinstance(owners, int)
+            or isinstance(owners, bool)
+            or not 0 < owners <= count
+            or not isinstance(examples, list)
+            or not examples
+            or len(examples) > min(5, owners)
+            or examples != sorted(set(examples))
+        ):
+            raise ValueError("invalid metadata facet group")
+    return inventory
+
+
+def verify_metadata_inventory(path: str | Path, root: str | Path) -> dict:
+    inventory = verify_metadata_inventory_manifest(path)
+    evidence = inventory["evidence"]
+    result = collect_v8unpack_metadata(root)
+    current = inventory.get("current", {})
+    expected = {
+        "identity": {
+            "total": result.identity_total,
+            "indexed": result.identity_indexed,
+            "failed": result.identity_total - result.identity_indexed,
+        },
+        "structural": {
+            "total": result.structural_total,
+            "indexed": result.structural_indexed,
+            "failed": result.structural_total - result.structural_indexed,
+        },
+        "facets": {
+            "total": result.facet_total,
+            "supported": result.facet_supported,
+            "unsupported": result.facet_total - result.facet_supported,
+        },
+        "unsupported_count": result.unsupported_count,
+        "status": result.status,
+    }
+    if current != expected or inventory.get("facets") != result.facets:
+        raise ValueError("live metadata inventory differs from manifest")
+    if evidence.get("active_json_input_tree_sha256") != tree_sha256(root, result.read_paths):
+        raise ValueError("metadata inventory JSON tree hash mismatch")
+    return inventory
 
 
 def verify_form_manifest(path: str | Path) -> dict:
@@ -810,6 +1026,9 @@ def main(argv: list[str] | None = None) -> int:
     manifest_sub = manifest_parser.add_subparsers(dest="manifest_action", required=True)
     verify_parser = manifest_sub.add_parser("verify")
     verify_parser.add_argument("path", nargs="+")
+    metadata_inventory_parser = sub.add_parser("metadata-inventory")
+    metadata_inventory_parser.add_argument("--root", required=True)
+    metadata_inventory_parser.add_argument("--manifest", required=True)
     form_manifest_parser = sub.add_parser("form-manifest")
     form_manifest_sub = form_manifest_parser.add_subparsers(dest="form_manifest_action", required=True)
     form_verify_parser = form_manifest_sub.add_parser("verify")
@@ -822,6 +1041,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.action == "manifest":
         verify_manifests(args.path)
+        return 0
+    if args.action == "metadata-inventory":
+        verify_metadata_inventory(args.manifest, args.root)
         return 0
     if args.action == "form-manifest":
         verify_form_manifest(args.path)
