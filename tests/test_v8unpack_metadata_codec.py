@@ -521,7 +521,11 @@ def test_form_oracle_manifest_is_self_contained_and_complete():
     ) == 53328
     assert manifest["inventory"]["structural_classes"] == 544
     assert manifest["inventory"]["projections"]["total"] == 4 * 4037
-    assert manifest["handler_contracts"][0]["canonical_event"] == "OnOpen"
+    assert [row["canonical_event"] for row in manifest["handler_contracts"]] == ["BeforeOpen", "OnOpen"]
+    assert {row["canonical_event"] for row in manifest["event_evidence"] if row["proof"] == "runtime"} == {
+        "BeforeOpen",
+        "OnOpen",
+    }
 
 
 def test_form_inventory_requires_exact_live_index_comparison():

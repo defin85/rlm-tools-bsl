@@ -1,6 +1,6 @@
 {
   "schema": "v8unpack_forms_802_v2",
-  "content_sha256": "af7eaf26c3ab2bdd379d8c91749c71166a690d8f908a436a706bef9386404221",
+  "content_sha256": "dd98e7c2a6d7b4c3c80638013beff4a20aa8ace7ec786d3f439e71dd0870ab4b",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -12,8 +12,8 @@
     "paired_cf": "c17339142d8b36102a5373e3e9fcc875140282986c46da9442124c745b90022a",
     "paired_json_tree": "1320b454e77c0f38bc49646c7e4da9607d277326874f199a52dc3497a1e845bd",
     "paired_xml_tree": "fdb1dec3253610a8ab734f623f937a70e654c6ab9232d0231d6a8553e2b5549a",
-    "probe_fixture_tree": "f43c2ba96f1da054d82102ebab5041eb3976cf3d7606d080783c6373c36ef130",
-    "probe_script": "2c844c673b4fdedea4d14be110f6e63757a1c47b7610ad56caa6ab1f67c7de1c",
+    "probe_fixture_tree": "7adf0607ab7e216708b7a1ff694a7220fa57b67b23e330c5f1cacf75349e7222",
+    "probe_script": "adb94f3a2e9ab21a42b769506a198cefdf6d2103c0b8213db3a843a6e90095b7",
     "probe_matrix": "635687597b8fd6f2dfe408a172d12db4fc0afae49e858db5490df5b8fbcf51d5",
     "probe_verifier": "142d5d2ad23e7220a0ba68d7ee0b28e22d0f427ff49809c49810601ea32beee1",
     "probe_base_cf": "72763bed107d75fb77effc884c7c41f16c8bb2b1ad50885996b832a05494d825",
@@ -25,7 +25,7 @@
     "probe_data_path_cf": "9c733fc8106110027f1f0ccd02fcfbf8541c504ebd3087b81f310c2d1f6d309c",
     "probe_data_path_roundtrip_cf": "6165e065e76681b35a414bf272504ef4397bf99416a4422b7c2ac718d73c9a43",
     "probe_managed_parity": "86afd90dd5590be777db7917481f7403179639ceba703efe3fb14252e7ed1fb8",
-    "probe_runtime_events": "801e93cd7a13d30211de81feb9c6c56d09aedca74da852491bf210d33ef26fd4"
+    "probe_runtime_events": "b1d8a403a23d414a0c6823c237cc647f022d6758123cc9e17d52c21c18da2ac5"
   },
   "paired_managed": {
     "forms": 298,
@@ -41,20 +41,50 @@
     },
     "projections": {
       "handlers": {
-        "xml": {"total": 2392, "unique": 2389, "duplicate": 3, "sha256": "ee05cb72515dc44add5a8c2797552e598e65e8e3283ed0bae9a5c58057f451f8"},
-        "json": {"total": 2392, "unique": 2389, "duplicate": 3, "sha256": "ee05cb72515dc44add5a8c2797552e598e65e8e3283ed0bae9a5c58057f451f8"},
+        "xml": {
+          "total": 2392,
+          "unique": 2389,
+          "duplicate": 3,
+          "sha256": "ee05cb72515dc44add5a8c2797552e598e65e8e3283ed0bae9a5c58057f451f8"
+        },
+        "json": {
+          "total": 2392,
+          "unique": 2389,
+          "duplicate": 3,
+          "sha256": "ee05cb72515dc44add5a8c2797552e598e65e8e3283ed0bae9a5c58057f451f8"
+        },
         "missing": 0,
         "extra": 0
       },
       "commands": {
-        "xml": {"total": 1325, "unique": 1325, "duplicate": 0, "sha256": "11a5232ab9de22ba4e8dbc66d5b607bcd44b4637a9e02f0c65f072ba1b93f586"},
-        "json": {"total": 1325, "unique": 1325, "duplicate": 0, "sha256": "11a5232ab9de22ba4e8dbc66d5b607bcd44b4637a9e02f0c65f072ba1b93f586"},
+        "xml": {
+          "total": 1325,
+          "unique": 1325,
+          "duplicate": 0,
+          "sha256": "11a5232ab9de22ba4e8dbc66d5b607bcd44b4637a9e02f0c65f072ba1b93f586"
+        },
+        "json": {
+          "total": 1325,
+          "unique": 1325,
+          "duplicate": 0,
+          "sha256": "11a5232ab9de22ba4e8dbc66d5b607bcd44b4637a9e02f0c65f072ba1b93f586"
+        },
         "missing": 0,
         "extra": 0
       },
       "attributes": {
-        "xml": {"total": 4028, "unique": 4028, "duplicate": 0, "sha256": "dab827b4f9ccc56ae935fcc16d8d5dfefdc8e5ff864e1a7e74ad48d99392cd04"},
-        "json": {"total": 4028, "unique": 4028, "duplicate": 0, "sha256": "dab827b4f9ccc56ae935fcc16d8d5dfefdc8e5ff864e1a7e74ad48d99392cd04"},
+        "xml": {
+          "total": 4028,
+          "unique": 4028,
+          "duplicate": 0,
+          "sha256": "dab827b4f9ccc56ae935fcc16d8d5dfefdc8e5ff864e1a7e74ad48d99392cd04"
+        },
+        "json": {
+          "total": 4028,
+          "unique": 4028,
+          "duplicate": 0,
+          "sha256": "dab827b4f9ccc56ae935fcc16d8d5dfefdc8e5ff864e1a7e74ad48d99392cd04"
+        },
         "missing": 0,
         "extra": 0
       }
@@ -79,7 +109,13 @@
       "InformationRegister": 244,
       "Report": 1956
     },
-    "local_versions": {"5": 10, "7": 93, "9": 721, "12": 181, "13": 3032},
+    "local_versions": {
+      "5": 10,
+      "7": 93,
+      "9": 721,
+      "12": 181,
+      "13": 3032
+    },
     "element_versions": {
       "1": 297,
       "0-26": 633,
@@ -113,7 +149,13 @@
       "InformationRegister": 244,
       "Report": 1956
     },
-    "local_versions": {"5": 10, "7": 93, "9": 721, "12": 181, "13": 3032},
+    "local_versions": {
+      "5": 10,
+      "7": 93,
+      "9": 721,
+      "12": 181,
+      "13": 3032
+    },
     "element_versions": {
       "1": 297,
       "0-26": 633,
@@ -125,28 +167,84 @@
     },
     "ordinary_candidates": {
       "0-20-16": {
-        "element": {"total": 4, "procedure_exists": 4, "procedure_missing": 0},
-        "form": {"total": 4, "procedure_exists": 4, "procedure_missing": 0}
+        "element": {
+          "total": 4,
+          "procedure_exists": 4,
+          "procedure_missing": 0
+        },
+        "form": {
+          "total": 4,
+          "procedure_exists": 4,
+          "procedure_missing": 0
+        }
       },
       "0-23-16": {
-        "element": {"total": 12, "procedure_exists": 12, "procedure_missing": 0},
-        "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
-        "form": {"total": 9, "procedure_exists": 9, "procedure_missing": 0}
+        "element": {
+          "total": 12,
+          "procedure_exists": 12,
+          "procedure_missing": 0
+        },
+        "ext_info": {
+          "total": 1,
+          "procedure_exists": 1,
+          "procedure_missing": 0
+        },
+        "form": {
+          "total": 9,
+          "procedure_exists": 9,
+          "procedure_missing": 0
+        }
       },
       "0-25-16": {
-        "element": {"total": 13, "procedure_exists": 13, "procedure_missing": 0},
-        "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
-        "form": {"total": 23, "procedure_exists": 23, "procedure_missing": 0}
+        "element": {
+          "total": 13,
+          "procedure_exists": 13,
+          "procedure_missing": 0
+        },
+        "ext_info": {
+          "total": 1,
+          "procedure_exists": 1,
+          "procedure_missing": 0
+        },
+        "form": {
+          "total": 23,
+          "procedure_exists": 23,
+          "procedure_missing": 0
+        }
       },
       "0-26": {
-        "element": {"total": 1212, "procedure_exists": 1212, "procedure_missing": 0},
-        "ext_info": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
-        "form": {"total": 1061, "procedure_exists": 1061, "procedure_missing": 0}
+        "element": {
+          "total": 1212,
+          "procedure_exists": 1212,
+          "procedure_missing": 0
+        },
+        "ext_info": {
+          "total": 36,
+          "procedure_exists": 36,
+          "procedure_missing": 0
+        },
+        "form": {
+          "total": 1061,
+          "procedure_exists": 1061,
+          "procedure_missing": 0
+        }
       },
       "0-27": {
-        "element": {"total": 40706, "procedure_exists": 40694, "procedure_missing": 12},
-        "ext_info": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
-        "form": {"total": 9836, "procedure_exists": 9818, "procedure_missing": 18}
+        "element": {
+          "total": 40706,
+          "procedure_exists": 40694,
+          "procedure_missing": 12
+        },
+        "ext_info": {
+          "total": 410,
+          "procedure_exists": 408,
+          "procedure_missing": 2
+        },
+        "form": {
+          "total": 9836,
+          "procedure_exists": 9818,
+          "procedure_missing": 18
+        }
       }
     },
     "ordinary_command_candidates": 22733,
@@ -183,10 +281,34 @@
       "unsupported": 3740,
       "failed": 0,
       "roles": {
-        "handlers": {"total": 4037, "complete": 3699, "empty": 338, "unsupported": 0, "failed": 0},
-        "commands": {"total": 4037, "complete": 225, "empty": 72, "unsupported": 3740, "failed": 0},
-        "attributes": {"total": 4037, "complete": 3903, "empty": 134, "unsupported": 0, "failed": 0},
-        "elements": {"total": 4037, "complete": 3843, "empty": 194, "unsupported": 0, "failed": 0}
+        "handlers": {
+          "total": 4037,
+          "complete": 3699,
+          "empty": 338,
+          "unsupported": 0,
+          "failed": 0
+        },
+        "commands": {
+          "total": 4037,
+          "complete": 225,
+          "empty": 72,
+          "unsupported": 3740,
+          "failed": 0
+        },
+        "attributes": {
+          "total": 4037,
+          "complete": 3903,
+          "empty": 134,
+          "unsupported": 0,
+          "failed": 0
+        },
+        "elements": {
+          "total": 4037,
+          "complete": 3843,
+          "empty": 194,
+          "unsupported": 0,
+          "failed": 0
+        }
       }
     }
   },
@@ -202,9 +324,25 @@
     "descriptor_keys_sha256": "af0ee3fd7c15aae10085dcdb5bd1d242c5eca40b947649dfec4bd109c2ec51b3",
     "ordinary_form_version_pairs_sha256": "bb3901fc9a79ae18051f68cb1c137e89e5a3d1755a7c51a384f028e61c6e22e3",
     "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
-    "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime"
+    "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
+    "proof_matrix_file": "forms-802.proof-matrix.json"
   },
   "handler_contracts": [
+    {
+      "form_type": "0",
+      "element_version": "0-27",
+      "event": "ПередОткрытием",
+      "canonical_event": "BeforeOpen",
+      "raw_event": "70000",
+      "raw_event_pointer": "/form/0/0/4/1/0",
+      "handler_pointer": "/form/0/0/4/1/2/1",
+      "handler_mirror_pointer": "/form/0/0/4/1/2/2/1",
+      "scope": "form",
+      "element_name": "",
+      "element_type": "",
+      "data_path": "",
+      "proof": "controlled_delta_and_runtime"
+    },
     {
       "form_type": "0",
       "element_version": "0-27",
@@ -223,7 +361,14 @@
   ],
   "unsupported_projections": {
     "commands": {
-      "element_versions": ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26", "0-27"],
+      "element_versions": [
+        "0-5-1",
+        "0-20-16",
+        "0-23-16",
+        "0-25-16",
+        "0-26",
+        "0-27"
+      ],
       "reason": "no controlled raw Form.json command delta"
     },
     "handlers": {
@@ -236,14 +381,37 @@
     "runtime_events": [
       {
         "action_id": "open-form",
+        "event": "ПередОткрытием",
+        "handler": "ПередОткрытием",
+        "sequence": 1
+      },
+      {
+        "action_id": "open-form",
         "event": "ПриОткрытии",
         "handler": "ПробаПриОткрытии",
-        "sequence": 1
+        "sequence": 2
       }
     ],
     "handler_paths": [
-      ["form", 0, 0, 4, 2, 2, 1],
-      ["form", 0, 0, 4, 2, 2, 2, 1]
+      [
+        "form",
+        0,
+        0,
+        4,
+        2,
+        2,
+        1
+      ],
+      [
+        "form",
+        0,
+        0,
+        4,
+        2,
+        2,
+        2,
+        1
+      ]
     ],
     "handler_contract": {
       "form_type": "0",
@@ -258,10 +426,13 @@
       "element_type": "",
       "data_path": ""
     },
-    "runtime_events_sha256": "801e93cd7a13d30211de81feb9c6c56d09aedca74da852491bf210d33ef26fd4",
+    "runtime_events_sha256": "b1d8a403a23d414a0c6823c237cc647f022d6758123cc9e17d52c21c18da2ac5",
     "static_probes": {
       "attribute": {
-        "json_pointers": ["/props/0/name", "/props/0/raw/4"],
+        "json_pointers": [
+          "/props/0/name",
+          "/props/0/raw/4"
+        ],
         "before": "Параметры",
         "after": "РеквизитПробника"
       },
@@ -275,5 +446,355 @@
         "action": "КомандаПробника"
       }
     }
-  }
+  },
+  "event_evidence": [
+    {
+      "canonical_event": "ActivationProcessing",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "AfterDeleteRow",
+      "structural_classes": 20,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "AfterRestoreValues",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "AfterWrite",
+      "structural_classes": 17,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "AutoComplete",
+      "structural_classes": 6,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeAddRow",
+      "structural_classes": 10,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeClose",
+      "structural_classes": 13,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeCollapse",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeDeleteRow",
+      "structural_classes": 16,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeEditEnd",
+      "structural_classes": 15,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeOpen",
+      "structural_classes": 8,
+      "proof": "runtime",
+      "reason": "triggered deterministically by the single startup action"
+    },
+    {
+      "canonical_event": "BeforeParentChange",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforePosting",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeRowChange",
+      "structural_classes": 15,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeSaveValues",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeSetDeletionMark",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeUndoPosting",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "BeforeWrite",
+      "structural_classes": 8,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "ChoiceProcessing",
+      "structural_classes": 34,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "Clearing",
+      "structural_classes": 12,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "Click",
+      "structural_classes": 10,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "DetailProcessing",
+      "structural_classes": 6,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "DocumentComplete",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "DragCheck",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "DragStart",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "ExternalEvent",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "MouseMove",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "MouseOut",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "MouseOver",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "NewWriteProcessing",
+      "structural_classes": 12,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "NotificationProcessing",
+      "structural_classes": 19,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnActivate",
+      "structural_classes": 5,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnActivateCell",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnActivateColumn",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnActivateRow",
+      "structural_classes": 8,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnChange",
+      "structural_classes": 39,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnChangeAreaContent",
+      "structural_classes": 8,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnCheckBoxChange",
+      "structural_classes": 19,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnClick",
+      "structural_classes": 5,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnClose",
+      "structural_classes": 16,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnCurrentPageChange",
+      "structural_classes": 3,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnDataChange",
+      "structural_classes": 4,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnEditEnd",
+      "structural_classes": 16,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnGetDataAtServer",
+      "structural_classes": 16,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnOpen",
+      "structural_classes": 12,
+      "proof": "runtime",
+      "reason": "triggered deterministically by the single startup action"
+    },
+    {
+      "canonical_event": "OnPeriodOutput",
+      "structural_classes": 1,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnReopen",
+      "structural_classes": 8,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnStartEdit",
+      "structural_classes": 17,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "OnWrite",
+      "structural_classes": 7,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "Opening",
+      "structural_classes": 9,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "RefreshDisplay",
+      "structural_classes": 18,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "RowOutput",
+      "structural_classes": 26,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "Selection",
+      "structural_classes": 14,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "StartChoice",
+      "structural_classes": 13,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "StartListChoice",
+      "structural_classes": 6,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "TextEditEnd",
+      "structural_classes": 9,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "Tuning",
+      "structural_classes": 8,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    },
+    {
+      "canonical_event": "ValueChoice",
+      "structural_classes": 2,
+      "proof": "closed_descriptor_and_source_consensus",
+      "reason": "requires additional UI input, external stimulus, or mutable form state outside the deterministic startup action"
+    }
+  ]
 }

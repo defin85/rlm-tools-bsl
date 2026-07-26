@@ -11,6 +11,7 @@ onec_client="${ONEC_CLIENT:-$onec_dir/1cv8}"
 v8unpack="${V8UNPACK:-$repo_root/.artifacts/v8unpack-oracle-802/v8unpack-1.2.9-venv/bin/v8unpack}"
 live_root="${RLM_FORM_PROBE_SOURCE_ROOT:-/run/media/egor/D6B64A72B64A52E3/Projects/OneC/tn-logistic/tn-bp30-sdd/src/cf/tn_bp20_custom_mcp}"
 form_name="ПробнаяФорма"
+manifest="$repo_root/tests/fixtures/v8unpack_oracle/forms-802.manifest.json"
 
 for command in "$ibcmd" "$onec_client" "$v8unpack" xpra Xvfb xdpyinfo jq base64 python3 timeout uv; do
 	if ! command -v "$command" >/dev/null 2>&1 && [ ! -x "$command" ]; then
@@ -24,12 +25,12 @@ if [ ! -d "$live_root" ]; then
 fi
 
 form_source_sha256() {
-	find "$live_root" -type f \
+	(cd "$live_root" && find . -type f \
 		\( -name '*.json' -o -name '*.bsl' \) -print0 \
 		| sort -z \
 		| xargs -0 sha256sum \
 		| sha256sum \
-		| cut -d' ' -f1
+		| cut -d' ' -f1)
 }
 
 mkdir -p "$artifact_root"
@@ -168,19 +169,22 @@ env -u DISPLAY -u WAYLAND_DISPLAY timeout 90s xpra start-desktop ":$display_numb
 	--log-file="$run_root/xpra.log" \
 	>"$run_root/xpra-console.log" 2>&1
 
-event_json='{"action_id":"open-form","event":"ПриОткрытии","handler":"ПробаПриОткрытии","sequence":1}'
-grep -oF "$event_json" "$client_out" >"$run_root/events.jsonl"
-jq -e --argjson expected "$event_json" \
-	'length == 1 and .[0] == $expected' \
+grep -oE '\{"action_id":"open-form".*\}' "$client_out" >"$run_root/events.jsonl"
+jq -e '
+	. == [
+		{"action_id":"open-form","event":"ПередОткрытием","handler":"ПередОткрытием","sequence":1},
+		{"action_id":"open-form","event":"ПриОткрытии","handler":"ПробаПриОткрытии","sequence":2}
+	]' \
 	--slurp "$run_root/events.jsonl" >/dev/null
 
 source_tree_before_sha256="$(form_source_sha256)"
 uv run --project "$repo_root" python -m rlm_tools_bsl.v8unpack_oracle \
 	form-manifest verify \
-	"$repo_root/tests/fixtures/v8unpack_oracle/forms-802.manifest.json"
+	"$manifest"
 uv run --project "$repo_root" python -m rlm_tools_bsl.v8unpack_oracle \
 	form-inventory \
 	--root "$live_root" \
+	--manifest "$manifest" \
 	--output "$run_root/inventory.json"
 python3 "$tool_dir/matrix.py" \
 	--inventory "$run_root/inventory.json" \
@@ -198,6 +202,12 @@ jq -e --slurpfile inventory "$run_root/inventory.json" '
 	and .rows_sha256 == $inventory[0].rows_sha256
 	and ([.results[].class_key] | unique | length) == .classes
 ' "$run_root/matrix/matrix.json" >/dev/null
+jq -s -e '
+	.[0].structural_classes_sha256 == .[1].ordinary_handler_registry.structural_classes_sha256
+	and .[0].rows_sha256 == .[1].ordinary_handler_registry.rows_sha256
+	and ([.[0].results[].class_key] | sort) == ([.[2].results[].class_key] | sort)
+' "$run_root/matrix/matrix.json" "$manifest" \
+	"$repo_root/tests/fixtures/v8unpack_oracle/forms-802.proof-matrix.json" >/dev/null
 source_tree_after_sha256="$(form_source_sha256)"
 test "$source_tree_before_sha256" = "$source_tree_after_sha256"
 

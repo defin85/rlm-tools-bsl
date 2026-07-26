@@ -722,7 +722,8 @@ def verify_metadata_inventory(path: str | Path, root: str | Path) -> dict:
 
 def verify_form_manifest(path: str | Path) -> dict:
     """Verify the compact, self-contained v8unpack form evidence manifest."""
-    manifest = json.loads(Path(path).read_text(encoding="utf-8"))
+    manifest_path = Path(path)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("schema") != FORM_MANIFEST_SCHEMA:
         raise ValueError("unsupported form manifest schema")
     payload = dict(manifest)
@@ -732,7 +733,7 @@ def verify_form_manifest(path: str | Path) -> dict:
     hashes = manifest.get("sha256", {})
     if not hashes or not all(isinstance(value, str) and len(value) == 64 for value in hashes.values()):
         raise ValueError("invalid form manifest hashes")
-    repo_root = Path(path).resolve().parents[3]
+    repo_root = manifest_path.resolve().parents[3]
     for key, rel_path in (
         ("probe_script", "tools/v8unpack_form_probe/run.sh"),
         ("probe_verifier", "tools/v8unpack_form_probe/verify.py"),
@@ -740,6 +741,10 @@ def verify_form_manifest(path: str | Path) -> dict:
     ):
         if hashes.get(key) != _sha256((repo_root / rel_path).read_bytes()):
             raise ValueError(f"form manifest hash mismatch: {key}")
+    fixture_root = repo_root / "tools/v8unpack_form_probe/fixture"
+    fixture_paths = {item.relative_to(fixture_root).as_posix() for item in fixture_root.rglob("*") if item.is_file()}
+    if hashes.get("probe_fixture_tree") != tree_sha256(fixture_root, fixture_paths):
+        raise ValueError("form manifest hash mismatch: probe_fixture_tree")
     paired = manifest.get("paired_managed", {})
     counters = paired.get("counters", {})
     if (
@@ -872,6 +877,21 @@ def verify_form_manifest(path: str | Path) -> dict:
         )
     ):
         raise ValueError("invalid ordinary form inventory")
+    before_open_contract = {
+        "form_type": "0",
+        "element_version": "0-27",
+        "event": "ПередОткрытием",
+        "canonical_event": "BeforeOpen",
+        "raw_event": "70000",
+        "raw_event_pointer": "/form/0/0/4/1/0",
+        "handler_pointer": "/form/0/0/4/1/2/1",
+        "handler_mirror_pointer": "/form/0/0/4/1/2/2/1",
+        "scope": "form",
+        "element_name": "",
+        "element_type": "",
+        "data_path": "",
+        "proof": "controlled_delta_and_runtime",
+    }
     expected_contract = {
         "form_type": "0",
         "element_version": "0-27",
@@ -892,12 +912,85 @@ def verify_form_manifest(path: str | Path) -> dict:
     from rlm_tools_bsl.v8unpack_forms import (
         _ORDINARY_FORM_VERSION_PAIRS,
         _ORDINARY_HANDLER_CLASSES,
+        _ordinary_event_name,
     )
 
     descriptor_keys_sha256 = _sha256(_json_bytes(sorted(_ORDINARY_HANDLER_CLASSES)))
     version_pairs_sha256 = _sha256(_json_bytes(sorted(_ORDINARY_FORM_VERSION_PAIRS)))
+    proof_matrix_file = registry.get("proof_matrix_file")
+    if not isinstance(proof_matrix_file, str):
+        raise ValueError("missing ordinary form proof matrix")
+    proof_matrix_path = manifest_path.parent / proof_matrix_file
+    if _sha256(proof_matrix_path.read_bytes()) != registry.get("proof_matrix_sha256"):
+        raise ValueError("ordinary form proof matrix hash mismatch")
+    proof_matrix = json.loads(proof_matrix_path.read_text(encoding="utf-8"))
+    proof_results = proof_matrix.get("results", [])
+    proof_keys = [tuple(result.get("class_key", ())) for result in proof_results]
     if (
-        manifest.get("handler_contracts") != [expected_contract]
+        proof_matrix.get("schema") != "v8unpack_ordinary_form_probe_matrix_v1"
+        or proof_matrix.get("classes") != 544
+        or proof_matrix.get("success") != 544
+        or proof_matrix.get("failed") != 0
+        or proof_matrix.get("structural_classes_sha256") != registry.get("structural_classes_sha256")
+        or proof_matrix.get("rows_sha256") != registry.get("rows_sha256")
+        or len(set(proof_keys)) != 544
+        or set(proof_keys) != set(_ORDINARY_HANDLER_CLASSES)
+    ):
+        raise ValueError("invalid ordinary form proof matrix")
+    event_classes: Counter = Counter()
+    for result, key in zip(proof_results, proof_keys, strict=True):
+        representative = result.get("representative", {})
+        delta = result.get("delta", [])
+        row_hashes = result.get("sha256", {})
+        canonical_event = _ordinary_event_name(
+            scope=key[3],
+            element_type=key[4],
+            raw_event=key[5],
+            path=_pointer_parts(representative.get("positional_path", "")),
+            element_version=key[1],
+            family=representative.get("family", ""),
+            owner=representative.get("owner", ""),
+            form_name=representative.get("form", ""),
+            element_name=representative.get("element_name", ""),
+        )
+        event_classes[canonical_event] += 1
+        if (
+            result.get("status") != "success"
+            or not canonical_event
+            or tuple(
+                representative.get(name, "")
+                for name in ("local_version", "element_version", "positional_path", "scope", "element_type", "raw_event")
+            )
+            != key
+            or {item.get("pointer") for item in delta}
+            != {representative.get("handler_pointer"), representative.get("handler_mirror_pointer")}
+            or {item.get("after") for item in delta} != {f'"{result.get("changed_handler", "")}"'}
+            or set(row_hashes)
+            != {
+                "base_cf",
+                "changed_cf",
+                "base_json",
+                "changed_json",
+                "delta",
+                "base_unchanged_tree",
+                "changed_unchanged_tree",
+            }
+            or not all(isinstance(value, str) and len(value) == 64 for value in row_hashes.values())
+            or row_hashes["base_unchanged_tree"] != row_hashes["changed_unchanged_tree"]
+        ):
+            raise ValueError("invalid ordinary form proof row")
+    event_evidence = manifest.get("event_evidence", [])
+    if (
+        len(event_evidence) != 58
+        or {row.get("canonical_event"): row.get("structural_classes") for row in event_evidence} != dict(event_classes)
+        or {row.get("proof") for row in event_evidence} != {"runtime", "closed_descriptor_and_source_consensus"}
+        or {row.get("canonical_event") for row in event_evidence if row.get("proof") == "runtime"}
+        != {"BeforeOpen", "OnOpen"}
+        or any(not row.get("reason") for row in event_evidence)
+    ):
+        raise ValueError("invalid ordinary form event evidence registry")
+    if (
+        manifest.get("handler_contracts") != [before_open_contract, expected_contract]
         or registry
         != {
             "snapshot": "v8unpack-1.2.9/802",
@@ -911,6 +1004,7 @@ def verify_form_manifest(path: str | Path) -> dict:
             "descriptor_keys_sha256": descriptor_keys_sha256,
             "ordinary_form_version_pairs_sha256": version_pairs_sha256,
             "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
+            "proof_matrix_file": "forms-802.proof-matrix.json",
             "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
         }
         or unsupported.get("commands", {}).get("element_versions")
@@ -926,9 +1020,15 @@ def verify_form_manifest(path: str | Path) -> dict:
         != [
             {
                 "action_id": "open-form",
+                "event": "ПередОткрытием",
+                "handler": "ПередОткрытием",
+                "sequence": 1,
+            },
+            {
+                "action_id": "open-form",
                 "event": "ПриОткрытии",
                 "handler": "ПробаПриОткрытии",
-                "sequence": 1,
+                "sequence": 2,
             }
         ]
         or not probe.get("handler_paths")
@@ -952,6 +1052,15 @@ def _quoted(value: object) -> str:
 
 def _json_pointer(path: tuple[object, ...]) -> str:
     return "/" + "/".join(str(value).replace("~", "~0").replace("/", "~1") for value in path)
+
+
+def _pointer_parts(pointer: str) -> tuple[object, ...]:
+    parts = []
+    for part in pointer.removeprefix("/").split("/"):
+        value = part.replace("~1", "/").replace("~0", "~")
+        if value:
+            parts.append(int(value) if value.isdigit() else value)
+    return tuple(parts)
 
 
 def _binding_context(parent: list, index: int) -> dict[str, object]:
@@ -1321,13 +1430,6 @@ def build_form_inventory(
     rows.sort(key=_json_bytes)
     form_result = collect_v8unpack_forms(root_path)
 
-    def pointer_parts(pointer: str) -> tuple[object, ...]:
-        parts = []
-        for part in pointer.removeprefix("/").split("/"):
-            value = part.replace("~1", "/").replace("~0", "~")
-            parts.append(int(value) if value.isdigit() else value)
-        return tuple(parts)
-
     expected_handlers = []
     for row in rows:
         if row["scope"] not in {"form", "element", "ext_info"}:
@@ -1336,7 +1438,7 @@ def build_form_inventory(
             scope=row["scope"],
             element_type=row["element_type"],
             raw_event=row["raw_event"],
-            path=pointer_parts(row["positional_path"]),
+            path=_pointer_parts(row["positional_path"]),
             element_version=row["element_version"],
             family=row["family"],
             owner=row["owner"],
