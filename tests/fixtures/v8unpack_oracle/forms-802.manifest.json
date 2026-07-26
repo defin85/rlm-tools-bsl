@@ -1,6 +1,6 @@
 {
   "schema": "v8unpack_forms_802_v2",
-  "content_sha256": "e073e296d6edfb3595f79d576c2c270aeb04c651dd56ba1c96f41f3695803aea",
+  "content_sha256": "1041a4f616c759554e7749aa1ec307ee52c45bec864826963a73633f78471aa4",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -123,10 +123,33 @@
       "0-25-16": 32
     },
     "ordinary_candidates": {
-      "0-26": {"total": 531, "procedure_exists": 531, "procedure_missing": 0},
-      "0-27": {"total": 2311, "procedure_exists": 2309, "procedure_missing": 2}
+      "0-20-16": {
+        "ambiguous": {"total": 6, "procedure_exists": 6, "procedure_missing": 0},
+        "form": {"total": 4, "procedure_exists": 4, "procedure_missing": 0}
+      },
+      "0-23-16": {
+        "ambiguous": {"total": 35, "procedure_exists": 35, "procedure_missing": 0},
+        "form": {"total": 9, "procedure_exists": 9, "procedure_missing": 0}
+      },
+      "0-25-16": {
+        "ambiguous": {"total": 32, "procedure_exists": 32, "procedure_missing": 0},
+        "form": {"total": 23, "procedure_exists": 23, "procedure_missing": 0}
+      },
+      "0-26": {
+        "ambiguous": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
+        "element": {"total": 1212, "procedure_exists": 1212, "procedure_missing": 0},
+        "form": {"total": 1061, "procedure_exists": 1061, "procedure_missing": 0}
+      },
+      "0-27": {
+        "ambiguous": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
+        "element": {"total": 40728, "procedure_exists": 40716, "procedure_missing": 12},
+        "form": {"total": 9836, "procedure_exists": 9818, "procedure_missing": 18}
+      }
     },
-    "rows_sha256": "725118a38ae8857f284de3fcc858db03bc6bdc0e48373867cf15a937315536cb",
+    "ordinary_command_candidates": 22667,
+    "structural_classes": 576,
+    "structural_classes_sha256": "b9aec4c75ccda2530312f52241602b3f1ed4da6187aa4a29bb31c347efe31c29",
+    "rows_sha256": "c78b077c1ab5db4de59e4a8415c417300a54346fed6813a13d65efe5258b4843",
     "projections": {
       "total": 16148,
       "complete": 8240,

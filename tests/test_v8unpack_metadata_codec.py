@@ -28,6 +28,8 @@ from rlm_tools_bsl.v8unpack_oracle import (
     PROJECTIONS,
     SCHEMA_VERSION,
     _json_bytes,
+    _json_pointer,
+    _ordinary_binding_candidates,
     _sha256,
     _verify_manifest,
     projection_summary,
@@ -38,6 +40,39 @@ from rlm_tools_bsl.v8unpack_oracle import (
 
 
 ENUM_TYPE_ID = "920a053a-5c39-4860-8e9f-d8446a4d9cc2"
+
+
+def test_ordinary_binding_inventory_keeps_outer_record_and_context():
+    value = [
+        "70001",
+        "event-type",
+        ["3", '"Обработчик"', ["1", '"Обработчик"', ["1", '"подпись"']]],
+    ]
+
+    rows = list(_ordinary_binding_candidates(value))
+
+    assert rows == [
+        (
+            (2,),
+            "70001",
+            "Обработчик",
+            {
+                "before": "event-type",
+                "after": None,
+                "prefix": ["70001", "event-type"],
+                "suffix": [],
+            },
+        )
+    ]
+    assert _json_pointer(("data", "Страница/Поле", "raw", 2)) == "/data/Страница~1Поле/raw/2"
+
+
+def test_ordinary_binding_inventory_rejects_unpaired_strings():
+    assert list(
+        _ordinary_binding_candidates(
+            ["3", '"ПохожееИмя"', ["1", '"ДругойОбработчик"']]
+        )
+    ) == []
 
 
 def _write(path: Path, value: object) -> None:
@@ -424,10 +459,12 @@ def test_form_oracle_manifest_is_self_contained_and_complete():
 
     assert manifest["paired_managed"]["forms"] == 298
     assert manifest["live_coverage"]["forms"] == 4037
-    assert manifest["inventory"]["ordinary_candidates"] == {
-        "0-26": {"total": 531, "procedure_exists": 531, "procedure_missing": 0},
-        "0-27": {"total": 2311, "procedure_exists": 2309, "procedure_missing": 2},
-    }
+    assert sum(
+        scope["total"]
+        for version in manifest["inventory"]["ordinary_candidates"].values()
+        for scope in version.values()
+    ) == 53392
+    assert manifest["inventory"]["structural_classes"] == 576
     assert manifest["inventory"]["projections"]["total"] == 4 * 4037
     assert manifest["handler_contracts"][0]["canonical_event"] == "OnOpen"
 

@@ -797,24 +797,40 @@ def verify_form_manifest(path: str | Path) -> dict:
     inventory = manifest.get("inventory", {})
     inventory_projections = inventory.get("projections", {})
     roles = inventory_projections.get("roles", {})
+    expected_ordinary_candidates = {
+        "0-20-16": {
+            "ambiguous": {"total": 6, "procedure_exists": 6, "procedure_missing": 0},
+            "form": {"total": 4, "procedure_exists": 4, "procedure_missing": 0},
+        },
+        "0-23-16": {
+            "ambiguous": {"total": 35, "procedure_exists": 35, "procedure_missing": 0},
+            "form": {"total": 9, "procedure_exists": 9, "procedure_missing": 0},
+        },
+        "0-25-16": {
+            "ambiguous": {"total": 32, "procedure_exists": 32, "procedure_missing": 0},
+            "form": {"total": 23, "procedure_exists": 23, "procedure_missing": 0},
+        },
+        "0-26": {
+            "ambiguous": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
+            "element": {"total": 1212, "procedure_exists": 1212, "procedure_missing": 0},
+            "form": {"total": 1061, "procedure_exists": 1061, "procedure_missing": 0},
+        },
+        "0-27": {
+            "ambiguous": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
+            "element": {"total": 40728, "procedure_exists": 40716, "procedure_missing": 12},
+            "form": {"total": 9836, "procedure_exists": 9818, "procedure_missing": 18},
+        },
+    }
     if (
         inventory.get("forms") != coverage.get("forms")
         or inventory.get("families") != coverage.get("families")
         or inventory.get("local_versions") != coverage.get("local_versions")
         or inventory.get("element_versions") != coverage.get("element_versions")
-        or inventory.get("ordinary_candidates")
-        != {
-            "0-26": {
-                "total": 531,
-                "procedure_exists": 531,
-                "procedure_missing": 0,
-            },
-            "0-27": {
-                "total": 2311,
-                "procedure_exists": 2309,
-                "procedure_missing": 2,
-            },
-        }
+        or inventory.get("ordinary_candidates") != expected_ordinary_candidates
+        or inventory.get("ordinary_command_candidates") != 22667
+        or inventory.get("structural_classes") != 576
+        or inventory.get("structural_classes_sha256")
+        != "b9aec4c75ccda2530312f52241602b3f1ed4da6187aa4a29bb31c347efe31c29"
         or not isinstance(inventory.get("rows_sha256"), str)
         or len(inventory["rows_sha256"]) != 64
         or set(roles) != {"handlers", "commands", "attributes", "elements"}
@@ -882,6 +898,94 @@ def _quoted(value: object) -> str:
     return value[1:-1].replace('""', '"')
 
 
+def _json_pointer(path: tuple[object, ...]) -> str:
+    return "/" + "/".join(str(value).replace("~", "~0").replace("/", "~1") for value in path)
+
+
+def _binding_context(parent: list, index: int) -> dict[str, object]:
+    def compact(value: object) -> object:
+        if not isinstance(value, (list, dict)):
+            return value
+        encoded = _json_bytes(value).decode("utf-8")
+        return encoded if len(encoded) <= 256 else f"{encoded[:256]}…"
+
+    return {
+        "before": compact(parent[index - 1]) if index else None,
+        "after": compact(parent[index + 1]) if index + 1 < len(parent) else None,
+        "prefix": [compact(value) for value in parent[:index]],
+        "suffix": [compact(value) for value in parent[index + 1 :]],
+    }
+
+
+def _ordinary_binding_candidates(
+    value: object,
+    path: tuple[object, ...] = (),
+    *,
+    parent: list | None = None,
+    parent_index: int = -1,
+):
+    """Yield the outer legacy binding records without interpreting their slots."""
+    if isinstance(value, list):
+        if (
+            len(value) >= 3
+            and value[0] == "3"
+            and (outer_handler := _quoted(value[1]))
+            and isinstance(value[2], list)
+            and len(value[2]) >= 2
+            and value[2][0] == "1"
+            and (handler := _quoted(value[2][1]))
+            and handler == outer_handler
+        ):
+            raw_event = (
+                str(parent[0])
+                if parent
+                and parent_index >= 2
+                and isinstance(parent[0], (str, int))
+                else ""
+            )
+            yield path, raw_event, handler, _binding_context(parent or [], parent_index)
+            return
+        for index, item in enumerate(value):
+            yield from _ordinary_binding_candidates(
+                item,
+                path + (index,),
+                parent=value,
+                parent_index=index,
+            )
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from _ordinary_binding_candidates(item, path + (key,))
+
+
+def _ordinary_element_types(tree: object) -> dict[str, set[str]]:
+    result: dict[str, set[str]] = {}
+    stack = list(tree) if isinstance(tree, list) else []
+    while stack:
+        item = stack.pop()
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        element_type = item.get("type")
+        if isinstance(name, str) and isinstance(element_type, str):
+            result.setdefault(name, set()).add(element_type)
+        for key in ("child", "children", "items"):
+            children = item.get(key)
+            if isinstance(children, list):
+                stack.extend(children)
+    return result
+
+
+def _module_procedures(path: Path) -> set[str]:
+    if not path.is_file() or path.is_symlink():
+        return set()
+    return set(
+        re.findall(
+            r"(?im)^\s*(?:процедура|функция)\s+([\wА-Яа-яЁё]+)\s*\(",
+            path.read_text(encoding="utf-8-sig"),
+        )
+    )
+
+
 def build_form_inventory(
     root: str | Path,
     *,
@@ -892,6 +996,7 @@ def build_form_inventory(
         _form_entries,
         collect_v8unpack_forms,
     )
+    from rlm_tools_bsl.format_detector import V8UNPACK_CATEGORY_MAP
     from rlm_tools_bsl.v8unpack_metadata import read_v8unpack_json
 
     root_path = Path(root).resolve()
@@ -900,99 +1005,265 @@ def build_form_inventory(
     element_versions: Counter = Counter()
     candidate_counts: Counter = Counter()
     procedure_counts: Counter = Counter()
-    rows = []
-    form_keys_by_version: dict[str, set[tuple[str, str, str]]] = {
-        "0-26": set(),
-        "0-27": set(),
-    }
+    class_counts: Counter = Counter()
+    rows: list[dict] = []
+    command_candidates = 0
+    ordinary_form_keys: set[tuple[str, str, str]] = set()
     for family, owner, form_name, form_dir, form_kind in _form_entries(root_path):
         rel_main = (form_dir / f"{form_kind}.json").relative_to(root_path).as_posix()
+        rel_elements = (form_dir / f"{form_kind}.elem.json").relative_to(root_path).as_posix()
         try:
             main = read_v8unpack_json(root_path, rel_main)
+            elements = read_v8unpack_json(root_path, rel_elements)
         except (OSError, ValueError, json.JSONDecodeError):
             continue
         families[family] += 1
-        local_versions[str(main.get("obj_version", ""))] += 1
+        local_version = str(main.get("obj_version", ""))
+        local_versions[local_version] += 1
         element_version = str(main.get("Версия элементов формы", ""))
         element_versions[element_version] += 1
-        if element_version not in form_keys_by_version:
+        if str(main.get("Тип формы")) != "0":
             continue
-        form_keys_by_version[element_version].add((family, owner, form_name))
-        slot = 1 if element_version == "0-26" else 2
-        try:
-            binding = main["form"][0][0][4][slot][2]
-            event = _quoted(binding[1])
-            handler = _quoted(binding[2][1])
-        except (KeyError, IndexError, TypeError):
-            continue
-        if not event or not handler:
-            continue
+        ordinary_form_keys.add((V8UNPACK_CATEGORY_MAP[family], owner, form_name))
         module_path = form_dir / f"{form_kind}.obj.bsl"
-        procedure_exists = False
-        if module_path.is_file() and not module_path.is_symlink():
-            body = module_path.read_text(encoding="utf-8-sig")
-            procedure_exists = (
-                re.search(
-                    rf"(?im)^\s*(?:процедура|функция)\s+{re.escape(handler)}\s*\(",
-                    body,
-                )
-                is not None
+        procedures = _module_procedures(module_path)
+
+        def append_candidate(
+            *,
+            source_path: str,
+            path: tuple[object, ...],
+            raw_event: str,
+            handler: str,
+            neighbor_context: dict[str, object],
+            scope: str,
+            element_name: str = "",
+            element_type: str = "",
+            data_path: str = "",
+            positional_prefix: int = 0,
+        ) -> None:
+            nonlocal command_candidates
+            if scope == "command":
+                command_candidates += 1
+                return
+            procedure_exists = handler in procedures
+            candidate_counts[(element_version, scope)] += 1
+            procedure_counts[(element_version, scope)] += int(procedure_exists)
+            json_pointer = _json_pointer(path)
+            positional_path = _json_pointer(path[positional_prefix:])
+            class_counts[
+                (local_version, element_version, positional_path, scope, element_type, raw_event)
+            ] += 1
+            rows.append(
+                {
+                    "data_path": data_path,
+                    "element_name": element_name,
+                    "element_type": element_type,
+                    "element_version": element_version,
+                    "family": family,
+                    "form": form_name,
+                    "handler": handler,
+                    "handler_pointer": f"{json_pointer}/2/1",
+                    "json_pointer": json_pointer,
+                    "local_version": local_version,
+                    "module_path": (
+                        module_path.relative_to(root_path).as_posix()
+                        if module_path.is_file() and not module_path.is_symlink()
+                        else ""
+                    ),
+                    "neighbor_context": neighbor_context,
+                    "owner": owner,
+                    "positional_path": positional_path,
+                    "procedure_exists": procedure_exists,
+                    "raw_event": raw_event,
+                    "raw_event_pointer": f"{json_pointer}/1",
+                    "scope": scope,
+                    "source_path": source_path,
+                }
             )
-        candidate_counts[element_version] += 1
-        if procedure_exists:
-            procedure_counts[element_version] += 1
-        rows.append(
-            {
-                "element_version": element_version,
-                "event": event,
-                "event_pointer": f"/form/0/0/4/{slot}/2/1",
-                "family": family,
-                "form": form_name,
-                "handler": handler,
-                "handler_pointer": f"/form/0/0/4/{slot}/2/2/1",
-                "main_path": rel_main,
-                "owner": owner,
-                "procedure_exists": procedure_exists,
-            }
-        )
+
+        for path, raw_event, handler, context in _ordinary_binding_candidates(
+            main.get("form"),
+            ("form",),
+        ):
+            direct_form_slot = (
+                len(path) == 6
+                and path[:4] == ("form", 0, 0, 4)
+                and path[-1] == 2
+            )
+            append_candidate(
+                source_path=rel_main,
+                path=path,
+                raw_event=raw_event,
+                handler=handler,
+                neighbor_context=context,
+                scope="form" if direct_form_slot else "ambiguous",
+            )
+
+        element_types = _ordinary_element_types(elements.get("tree"))
+        data = elements.get("data")
+        if isinstance(data, dict):
+            for element_key, details in data.items():
+                if not isinstance(element_key, str) or not isinstance(details, dict):
+                    continue
+                element_name = element_key.rsplit("/", 1)[-1]
+                types = sorted(element_types.get(element_name, set()))
+                element_type = types[0] if len(types) == 1 else "|".join(types)
+                scope = "command" if element_type == "CommandPanel" else "element"
+                for path, raw_event, handler, context in _ordinary_binding_candidates(
+                    details.get("raw"),
+                    ("data", element_key, "raw"),
+                ):
+                    append_candidate(
+                        source_path=rel_elements,
+                        path=path,
+                        raw_event=raw_event,
+                        handler=handler,
+                        neighbor_context=context,
+                        scope=scope,
+                        element_name=element_name,
+                        element_type=element_type,
+                        data_path=str(details.get("ПутьКДанным", "")),
+                        positional_prefix=2,
+                    )
+    for row in rows:
+        row["candidate_id"] = _sha256(_json_bytes(row))
     rows.sort(key=_json_bytes)
     form_result = collect_v8unpack_forms(root_path)
+    ordinary_candidates = {}
+    for version in sorted({key[0] for key in candidate_counts}):
+        scopes = {}
+        for scope in ("form", "element", "ambiguous"):
+            total = candidate_counts[(version, scope)]
+            if not total:
+                continue
+            present = procedure_counts[(version, scope)]
+            scopes[scope] = {
+                "total": total,
+                "procedure_exists": present,
+                "procedure_missing": total - present,
+            }
+        ordinary_candidates[version] = scopes
+    structural_classes = [
+        {
+            "count": count,
+            "element_type": element_type,
+            "element_version": element_version,
+            "local_version": local_version,
+            "positional_path": positional_path,
+            "scope": scope,
+            "raw_event": raw_event,
+        }
+        for (
+            local_version,
+            element_version,
+            positional_path,
+            scope,
+            element_type,
+            raw_event,
+        ), count in sorted(
+            class_counts.items()
+        )
+    ]
     report = {
-        "schema": "v8unpack_form_inventory_v1",
+        "schema": "v8unpack_form_inventory_v2",
         "root_object_version": "802",
         "forms": sum(families.values()),
         "families": dict(sorted(families.items())),
         "local_versions": dict(sorted(local_versions.items())),
         "element_versions": dict(sorted(element_versions.items())),
-        "ordinary_candidates": {
-            version: {
-                "total": candidate_counts[version],
-                "procedure_exists": procedure_counts[version],
-                "procedure_missing": candidate_counts[version] - procedure_counts[version],
-            }
-            for version in ("0-26", "0-27")
-        },
+        "ordinary_candidates": ordinary_candidates,
+        "ordinary_command_candidates": command_candidates,
+        "structural_classes": structural_classes,
+        "structural_classes_sha256": _sha256(_json_bytes(structural_classes)),
         "rows_sha256": _sha256(_json_bytes(rows)),
         "rows": rows,
         "projections": form_result.projection_summary(),
     }
     if index_path is not None:
         with sqlite3.connect(index_path) as conn:
-            indexed_handlers = conn.execute("SELECT COUNT(*) FROM form_elements WHERE kind='handler'").fetchone()[0]
-            indexed_commands = conn.execute("SELECT COUNT(*) FROM form_elements WHERE kind='command'").fetchone()[0]
-            exact = {}
-            for version, keys in form_keys_by_version.items():
-                matched = 0
-                for _family, owner, form_name in keys:
-                    matched += conn.execute(
-                        "SELECT COUNT(*) FROM form_elements WHERE object_name=? AND form_name=? AND kind='handler'",
-                        (owner, form_name),
-                    ).fetchone()[0]
-                exact[version] = matched
+            indexed = [
+                tuple(row)
+                for row in conn.execute(
+                    """
+                    SELECT category, object_name, form_name, scope, element_name,
+                           element_type, handler, data_path
+                    FROM form_elements
+                    WHERE kind='handler'
+                    """
+                )
+            ]
+            indexed_commands = conn.execute(
+                "SELECT COUNT(*) FROM form_elements WHERE kind='command'"
+            ).fetchone()[0]
+        def index_key(row: dict) -> tuple:
+            return (
+                V8UNPACK_CATEGORY_MAP[row["family"]],
+                row["owner"],
+                row["form"],
+                row["scope"],
+                row["element_name"],
+                row["element_type"],
+                row["handler"],
+                row["data_path"],
+            )
+
+        candidates = [index_key(row) for row in rows if row["scope"] in {"form", "element"}]
+        indexed = [row for row in indexed if row[:3] in ordinary_form_keys]
+        indexed_counter = Counter(indexed)
+        extracted_ids: Counter = Counter()
+        missed_ids: Counter = Counter()
+        ambiguous_ids: Counter = Counter()
+        misclassified_ids: Counter = Counter()
+        remaining_candidates = []
+        for row in rows:
+            if row["scope"] == "ambiguous":
+                ambiguous_ids[row["candidate_id"]] += 1
+                continue
+            key = index_key(row)
+            is_v19_contract = (
+                row["element_version"] == "0-27"
+                and row["scope"] == "form"
+                and row["json_pointer"] == "/form/0/0/4/2/2"
+            )
+            if is_v19_contract and indexed_counter[key]:
+                extracted_ids[row["candidate_id"]] += 1
+                indexed_counter[key] -= 1
+            else:
+                remaining_candidates.append((row, key))
+        indexed_identities = Counter(
+            (row[0], row[1], row[2], row[6])
+            for row, count in indexed_counter.items()
+            for _ in range(count)
+        )
+        for row, key in remaining_candidates:
+            identity = (key[0], key[1], key[2], key[6])
+            if indexed_identities[identity]:
+                misclassified_ids[row["candidate_id"]] += 1
+                indexed_identities[identity] -= 1
+            else:
+                missed_ids[row["candidate_id"]] += 1
+
+        def id_multiset(counter: Counter) -> list[dict]:
+            return [
+                {"candidate_id": candidate_id, "count": count}
+                for candidate_id, count in sorted(counter.items())
+            ]
+
         report["index_comparison"] = {
-            "handlers_total": indexed_handlers,
+            "handlers_total": len(indexed),
             "commands_total": indexed_commands,
-            "ordinary_handlers_by_version": exact,
+            "candidate_handlers": len(candidates),
+            "extracted": extracted_ids.total(),
+            "missed": missed_ids.total(),
+            "ambiguous": ambiguous_ids.total(),
+            "misclassified": misclassified_ids.total(),
+            "unexpected_index_rows": indexed_identities.total(),
+            "candidate_ids": {
+                "extracted": id_multiset(extracted_ids),
+                "missed": id_multiset(missed_ids),
+                "ambiguous": id_multiset(ambiguous_ids),
+                "misclassified": id_multiset(misclassified_ids),
+            },
         }
     payload = dict(report)
     report["content_sha256"] = _sha256(_json_bytes(payload))
@@ -1002,12 +1273,14 @@ def build_form_inventory(
 def verify_form_inventory(report: dict, manifest: dict) -> None:
     expected = manifest.get("inventory", {})
     if (
-        report.get("schema") != "v8unpack_form_inventory_v1"
+        report.get("schema") != "v8unpack_form_inventory_v2"
         or report.get("forms") != expected.get("forms")
         or report.get("families") != expected.get("families")
         or report.get("local_versions") != expected.get("local_versions")
         or report.get("element_versions") != expected.get("element_versions")
         or report.get("ordinary_candidates") != expected.get("ordinary_candidates")
+        or report.get("ordinary_command_candidates") != expected.get("ordinary_command_candidates")
+        or report.get("structural_classes_sha256") != expected.get("structural_classes_sha256")
         or report.get("rows_sha256") != expected.get("rows_sha256")
         or report.get("projections") != expected.get("projections")
     ):
