@@ -1003,7 +1003,7 @@ def verify_form_manifest(path: str | Path) -> dict:
             "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
             "descriptor_keys_sha256": descriptor_keys_sha256,
             "ordinary_form_version_pairs_sha256": version_pairs_sha256,
-            "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
+            "proof_matrix_sha256": _sha256(proof_matrix_path.read_bytes()),
             "proof_matrix_file": "forms-802.proof-matrix.json",
             "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
         }

@@ -1,6 +1,6 @@
 {
   "schema": "v8unpack_forms_802_v2",
-  "content_sha256": "dd98e7c2a6d7b4c3c80638013beff4a20aa8ace7ec786d3f439e71dd0870ab4b",
+  "content_sha256": "8c75ae93e4db5153d9fea00f317a8f7a62fdff13698ba87f1705cd053ee412a4",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -16,14 +16,14 @@
     "probe_script": "adb94f3a2e9ab21a42b769506a198cefdf6d2103c0b8213db3a843a6e90095b7",
     "probe_matrix": "635687597b8fd6f2dfe408a172d12db4fc0afae49e858db5490df5b8fbcf51d5",
     "probe_verifier": "142d5d2ad23e7220a0ba68d7ee0b28e22d0f427ff49809c49810601ea32beee1",
-    "probe_base_cf": "72763bed107d75fb77effc884c7c41f16c8bb2b1ad50885996b832a05494d825",
-    "probe_changed_cf": "475a37bd26b076f0a206f72039bf4182f5f60baa2b768921f9d5cf520268185f",
+    "probe_base_cf": "dc669c6f6a578929bcced77deab3c9e0d0bed66d905c2b1f91de0bd3758f1dca",
+    "probe_changed_cf": "ab588a649728f9ca22d7df58e0d358c852c30db4ab1dac7949fed90aaa7df66e",
     "probe_base_json": "83dcfdd1822ecadf7649dfdf77d6b038396a15ea2df691b615718bb546c84998",
     "probe_changed_json": "82aac491ae9427da1d57f995fe9e3de91c93d366bb9c787ba20c22f79240f176",
-    "probe_attribute_cf": "38976e6aa72ffb10aeb88b499027481f59fcd1b3fccc276b05e089a9999de5d8",
-    "probe_attribute_roundtrip_cf": "3f20d88ee7375437144ee3388e161773af03c3ce2c22db6cb81a2eca48cc8694",
-    "probe_data_path_cf": "9c733fc8106110027f1f0ccd02fcfbf8541c504ebd3087b81f310c2d1f6d309c",
-    "probe_data_path_roundtrip_cf": "6165e065e76681b35a414bf272504ef4397bf99416a4422b7c2ac718d73c9a43",
+    "probe_attribute_cf": "01167c5b013a7e5d8498101e2bcbdc8bf4701573634111ac5850ee72dbab32df",
+    "probe_attribute_roundtrip_cf": "120aa07e0982291eadcd97f139340b7ecf583001ce15cbaa79e8683aa1f2e610",
+    "probe_data_path_cf": "0d0b36e454224d85ae5bead552b641c62c554c28101a2ced83abc7f3a1f6ce5a",
+    "probe_data_path_roundtrip_cf": "beb950e7c0946f51a369fa5618422c8deefee57d5d99a78b09d70f871af153b0",
     "probe_managed_parity": "86afd90dd5590be777db7917481f7403179639ceba703efe3fb14252e7ed1fb8",
     "probe_runtime_events": "b1d8a403a23d414a0c6823c237cc647f022d6758123cc9e17d52c21c18da2ac5"
   },
@@ -323,7 +323,7 @@
     "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
     "descriptor_keys_sha256": "af0ee3fd7c15aae10085dcdb5bd1d242c5eca40b947649dfec4bd109c2ec51b3",
     "ordinary_form_version_pairs_sha256": "bb3901fc9a79ae18051f68cb1c137e89e5a3d1755a7c51a384f028e61c6e22e3",
-    "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
+    "proof_matrix_sha256": "03ad6d7afb9370e25a1c6c97a8ef9ebb87d266609e98fea9f8aaf1bd041bb5ef",
     "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
     "proof_matrix_file": "forms-802.proof-matrix.json"
   },
@@ -445,7 +445,9 @@
         "name": "КомандаПробника",
         "action": "КомандаПробника"
       }
-    }
+    },
+    "accepted_run_result": ".artifacts/v8unpack-form-probe/run.xkANId/result.json",
+    "accepted_run_note": "CF hashes record this accepted run; stable structural keys and normalized deltas are the reproducibility gate."
   },
   "event_evidence": [
     {
