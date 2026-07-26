@@ -11,6 +11,7 @@ at_pointer = _MODULE.at_pointer
 json_differences = _MODULE.json_differences
 json_pointer = _MODULE.json_pointer
 pointer_parts = _MODULE.pointer_parts
+tree_sha256 = _MODULE.tree_sha256
 
 
 def test_probe_matrix_json_pointer_and_minimal_delta():
@@ -26,3 +27,17 @@ def test_probe_matrix_json_pointer_and_minimal_delta():
         (("data", "Страница/Поле", "raw", 2, 1), "before", "after")
     ]
     assert json_pointer(differences[0][0]) == pointer
+
+
+def test_probe_matrix_tree_hash_ignores_only_declared_paths(tmp_path):
+    (tmp_path / "target.json").write_text("before")
+    (tmp_path / "stable.json").write_text("stable")
+    (tmp_path / "binary.zip").write_bytes(b"before")
+    baseline = tree_sha256(tmp_path, exclude={Path("target.json")})
+
+    (tmp_path / "target.json").write_text("after")
+    (tmp_path / "binary.zip").write_bytes(b"after")
+    assert tree_sha256(tmp_path, exclude={Path("target.json")}) == baseline
+
+    (tmp_path / "stable.json").write_text("changed")
+    assert tree_sha256(tmp_path, exclude={Path("target.json")}) != baseline

@@ -736,6 +736,7 @@ def verify_form_manifest(path: str | Path) -> dict:
     for key, rel_path in (
         ("probe_script", "tools/v8unpack_form_probe/run.sh"),
         ("probe_verifier", "tools/v8unpack_form_probe/verify.py"),
+        ("probe_matrix", "tools/v8unpack_form_probe/matrix.py"),
     ):
         if hashes.get(key) != _sha256((repo_root / rel_path).read_bytes()):
             raise ValueError(f"form manifest hash mismatch: {key}")
@@ -830,11 +831,36 @@ def verify_form_manifest(path: str | Path) -> dict:
         or inventory.get("element_versions") != coverage.get("element_versions")
         or inventory.get("ordinary_candidates") != expected_ordinary_candidates
         or inventory.get("ordinary_command_candidates") != 22733
+        or inventory.get("ordinary_form_version_pairs")
+        != {
+            "5/0-20-16": 6,
+            "5/0-23-16": 4,
+            "7/0-5-1": 54,
+            "7/0-25-16": 10,
+            "7/0-26": 29,
+            "9/0-20-16": 4,
+            "9/0-23-16": 13,
+            "9/0-25-16": 22,
+            "9/0-26": 602,
+            "9/0-27": 73,
+            "12/0-26": 2,
+            "12/0-27": 150,
+            "13/0-27": 2771,
+        }
         or inventory.get("structural_classes") != 544
         or inventory.get("structural_classes_sha256")
         != "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68"
         or not isinstance(inventory.get("rows_sha256"), str)
         or len(inventory["rows_sha256"]) != 64
+        or inventory.get("handler_rows")
+        != {
+            "candidates": 53328,
+            "indexed": 53328,
+            "candidates_sha256": "f16d1114182dd1ac3a69ec7b19b81f14170193d2627991c9af7cd451815ae675",
+            "indexed_sha256": "f16d1114182dd1ac3a69ec7b19b81f14170193d2627991c9af7cd451815ae675",
+            "missing": 0,
+            "extra": 0,
+        }
         or set(roles) != {"handlers", "commands", "attributes", "elements"}
         or any(role.get("total") != coverage.get("forms") for role in roles.values())
         or inventory_projections.get("total") != 4 * coverage.get("forms")
@@ -851,8 +877,10 @@ def verify_form_manifest(path: str | Path) -> dict:
         "element_version": "0-27",
         "event": "ПриОткрытии",
         "canonical_event": "OnOpen",
-        "event_pointer": "/form/0/0/4/2/2/1",
-        "handler_pointer": "/form/0/0/4/2/2/2/1",
+        "raw_event": "70001",
+        "raw_event_pointer": "/form/0/0/4/2/0",
+        "handler_pointer": "/form/0/0/4/2/2/1",
+        "handler_mirror_pointer": "/form/0/0/4/2/2/2/1",
         "scope": "form",
         "element_name": "",
         "element_type": "",
@@ -861,6 +889,13 @@ def verify_form_manifest(path: str | Path) -> dict:
     }
     unsupported = manifest.get("unsupported_projections", {})
     registry = manifest.get("ordinary_handler_registry", {})
+    from rlm_tools_bsl.v8unpack_forms import (
+        _ORDINARY_FORM_VERSION_PAIRS,
+        _ORDINARY_HANDLER_CLASSES,
+    )
+
+    descriptor_keys_sha256 = _sha256(_json_bytes(sorted(_ORDINARY_HANDLER_CLASSES)))
+    version_pairs_sha256 = _sha256(_json_bytes(sorted(_ORDINARY_FORM_VERSION_PAIRS)))
     if (
         manifest.get("handler_contracts") != [expected_contract]
         or registry
@@ -869,9 +904,12 @@ def verify_form_manifest(path: str | Path) -> dict:
             "structural_classes": 544,
             "handlers": 53328,
             "canonical_events": 58,
+            "ordinary_form_version_pairs": 13,
             "structural_classes_sha256": "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68",
-            "rows_sha256": "53e8d4975a6b9120327dd606f5fcf2743ad7d74b79adbdfec9bd06764a2d1149",
+            "rows_sha256": "93e7181b845e2ac1031598ba0c80be5a19a9ae3fbdedf0199a4f6d20fdad4880",
             "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
+            "descriptor_keys_sha256": descriptor_keys_sha256,
+            "ordinary_form_version_pairs_sha256": version_pairs_sha256,
             "proof_matrix_sha256": "6ab68f2f6f7b245a2491e54dbf454624dd5bb4fbc409aaaf92d5df9301c42094",
             "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
         }
@@ -924,10 +962,10 @@ def _binding_context(parent: list, index: int) -> dict[str, object]:
         return encoded if len(encoded) <= 256 else f"{encoded[:256]}…"
 
     return {
-        "before": compact(parent[index - 1]) if index else None,
-        "after": compact(parent[index + 1]) if index + 1 < len(parent) else None,
-        "prefix": [compact(value) for value in parent[:index]],
-        "suffix": [compact(value) for value in parent[index + 1 :]],
+        "before": compact(parent[index - 1]) if 0 < index < len(parent) else None,
+        "after": compact(parent[index + 1]) if 0 <= index + 1 < len(parent) else None,
+        "prefix": [compact(value) for value in parent[:index]] if index >= 0 else [],
+        "suffix": [compact(value) for value in parent[index + 1 :]] if index >= 0 else [],
     }
 
 
@@ -1114,6 +1152,7 @@ def build_form_inventory(
 ) -> dict:
     """Build the deterministic live ordinary-form evidence report."""
     from rlm_tools_bsl.v8unpack_forms import (
+        _ordinary_event_name,
         _form_entries,
         collect_v8unpack_forms,
     )
@@ -1129,6 +1168,7 @@ def build_form_inventory(
     class_counts: Counter = Counter()
     rows: list[dict] = []
     command_candidates = 0
+    ordinary_version_pairs: Counter = Counter()
     ordinary_form_keys: set[tuple[str, str, str]] = set()
     for family, owner, form_name, form_dir, form_kind in _form_entries(root_path):
         rel_main = (form_dir / f"{form_kind}.json").relative_to(root_path).as_posix()
@@ -1145,6 +1185,7 @@ def build_form_inventory(
         element_versions[element_version] += 1
         if str(main.get("Тип формы")) != "0":
             continue
+        ordinary_version_pairs[(local_version, element_version)] += 1
         ordinary_form_keys.add((V8UNPACK_CATEGORY_MAP[family], owner, form_name))
         module_path = form_dir / f"{form_kind}.obj.bsl"
         procedures = _module_procedures(module_path)
@@ -1183,7 +1224,8 @@ def build_form_inventory(
                     "family": family,
                     "form": form_name,
                     "handler": handler,
-                    "handler_pointer": f"{json_pointer}/2/1",
+                    "handler_pointer": f"{json_pointer}/1",
+                    "handler_mirror_pointer": f"{json_pointer}/2/1",
                     "json_pointer": json_pointer,
                     "local_version": local_version,
                     "module_path": (
@@ -1196,7 +1238,7 @@ def build_form_inventory(
                     "positional_path": positional_path,
                     "procedure_exists": procedure_exists,
                     "raw_event": raw_event,
-                    "raw_event_pointer": f"{json_pointer}/1",
+                    "raw_event_pointer": _json_pointer(path[:-1] + (0,)),
                     "scope": scope,
                     "source_path": source_path,
                 }
@@ -1256,6 +1298,49 @@ def build_form_inventory(
         row["candidate_id"] = _sha256(_json_bytes(row))
     rows.sort(key=_json_bytes)
     form_result = collect_v8unpack_forms(root_path)
+
+    def pointer_parts(pointer: str) -> tuple[object, ...]:
+        parts = []
+        for part in pointer.removeprefix("/").split("/"):
+            value = part.replace("~1", "/").replace("~0", "~")
+            parts.append(int(value) if value.isdigit() else value)
+        return tuple(parts)
+
+    expected_handlers = []
+    for row in rows:
+        if row["scope"] not in {"form", "element", "ext_info"}:
+            continue
+        event = _ordinary_event_name(
+            scope=row["scope"],
+            element_type=row["element_type"],
+            raw_event=row["raw_event"],
+            path=pointer_parts(row["positional_path"]),
+            element_version=row["element_version"],
+            family=row["family"],
+            owner=row["owner"],
+            form_name=row["form"],
+            element_name=row["element_name"],
+        )
+        expected_handlers.append(
+            (
+                row["owner"],
+                V8UNPACK_CATEGORY_MAP[row["family"]],
+                row["form"],
+                row["scope"],
+                row["element_name"],
+                row["element_type"],
+                event,
+                row["handler"],
+                row["data_path"],
+            )
+        )
+    indexed_handlers = [
+        (row[0], row[1], row[2], row[4], row[5], row[6], row[7], row[8], row[9])
+        for row in form_result.rows
+        if row[3] == "handler" and (row[1], row[0], row[2]) in ordinary_form_keys
+    ]
+    expected_handler_counter = Counter(expected_handlers)
+    indexed_handler_counter = Counter(indexed_handlers)
     ordinary_candidates = {}
     for version in sorted({key[0] for key in candidate_counts}):
         scopes = {}
@@ -1299,11 +1384,25 @@ def build_form_inventory(
         "local_versions": dict(sorted(local_versions.items())),
         "element_versions": dict(sorted(element_versions.items())),
         "ordinary_candidates": ordinary_candidates,
+        "ordinary_form_version_pairs": {
+            f"{local_version}/{element_version}": count
+            for (local_version, element_version), count in sorted(
+                ordinary_version_pairs.items()
+            )
+        },
         "ordinary_command_candidates": command_candidates,
         "structural_classes": structural_classes,
         "structural_classes_sha256": _sha256(_json_bytes(structural_classes)),
         "rows_sha256": _sha256(_json_bytes(rows)),
         "rows": rows,
+        "handler_rows": {
+            "candidates": len(expected_handlers),
+            "indexed": len(indexed_handlers),
+            "candidates_sha256": _sha256(_json_bytes(sorted(expected_handlers))),
+            "indexed_sha256": _sha256(_json_bytes(sorted(indexed_handlers))),
+            "missing": (expected_handler_counter - indexed_handler_counter).total(),
+            "extra": (indexed_handler_counter - expected_handler_counter).total(),
+        },
         "projections": form_result.projection_summary(),
     }
     if index_path is not None:
@@ -1398,7 +1497,20 @@ def build_form_inventory(
 
 
 def verify_form_inventory(report: dict, manifest: dict) -> None:
+    from rlm_tools_bsl.v8unpack_forms import _ORDINARY_HANDLER_CLASSES
+
     expected = manifest.get("inventory", {})
+    classes = {
+        (
+            row["local_version"],
+            row["element_version"],
+            row["positional_path"],
+            row["scope"],
+            row["element_type"],
+            row["raw_event"],
+        )
+        for row in report.get("structural_classes", [])
+    }
     if (
         report.get("schema") != "v8unpack_form_inventory_v2"
         or report.get("forms") != expected.get("forms")
@@ -1406,10 +1518,14 @@ def verify_form_inventory(report: dict, manifest: dict) -> None:
         or report.get("local_versions") != expected.get("local_versions")
         or report.get("element_versions") != expected.get("element_versions")
         or report.get("ordinary_candidates") != expected.get("ordinary_candidates")
+        or report.get("ordinary_form_version_pairs")
+        != expected.get("ordinary_form_version_pairs")
         or report.get("ordinary_command_candidates") != expected.get("ordinary_command_candidates")
         or report.get("structural_classes_sha256") != expected.get("structural_classes_sha256")
         or report.get("rows_sha256") != expected.get("rows_sha256")
+        or report.get("handler_rows") != expected.get("handler_rows")
         or report.get("projections") != expected.get("projections")
+        or classes != _ORDINARY_HANDLER_CLASSES
     ):
         raise ValueError("live form inventory differs from manifest")
 

@@ -47,7 +47,7 @@ ENUM_TYPE_ID = "920a053a-5c39-4860-8e9f-d8446a4d9cc2"
 def test_ordinary_binding_inventory_keeps_outer_record_and_context():
     value = [
         "70001",
-        "event-type",
+        "e1692cc2-605b-4535-84dd-28440238746c",
         ["3", '"Обработчик"', ["1", '"Обработчик"', ["1", '"подпись"']]],
     ]
 
@@ -59,9 +59,9 @@ def test_ordinary_binding_inventory_keeps_outer_record_and_context():
             "70001",
             "Обработчик",
             {
-                "before": "event-type",
+                "before": "e1692cc2-605b-4535-84dd-28440238746c",
                 "after": None,
-                "prefix": ["70001", "event-type"],
+                "prefix": ["70001", "e1692cc2-605b-4535-84dd-28440238746c"],
                 "suffix": [],
             },
         )
@@ -516,8 +516,8 @@ def test_form_oracle_manifest_is_self_contained_and_complete():
         scope["total"]
         for version in manifest["inventory"]["ordinary_candidates"].values()
         for scope in version.values()
-    ) == 53392
-    assert manifest["inventory"]["structural_classes"] == 576
+    ) == 53328
+    assert manifest["inventory"]["structural_classes"] == 544
     assert manifest["inventory"]["projections"]["total"] == 4 * 4037
     assert manifest["handler_contracts"][0]["canonical_event"] == "OnOpen"
 

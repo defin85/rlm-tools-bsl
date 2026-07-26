@@ -23,6 +23,15 @@ if [ ! -d "$live_root" ]; then
 	exit 1
 fi
 
+form_source_sha256() {
+	find "$live_root" -type f \
+		\( -name '*.json' -o -name '*.bsl' \) -print0 \
+		| sort -z \
+		| xargs -0 sha256sum \
+		| sha256sum \
+		| cut -d' ' -f1
+}
+
 mkdir -p "$artifact_root"
 run_root="$(mktemp -d "$artifact_root/run.XXXXXX")"
 source_dir="$run_root/source"
@@ -165,6 +174,10 @@ jq -e --argjson expected "$event_json" \
 	'length == 1 and .[0] == $expected' \
 	--slurp "$run_root/events.jsonl" >/dev/null
 
+source_tree_before_sha256="$(form_source_sha256)"
+uv run --project "$repo_root" python -m rlm_tools_bsl.v8unpack_oracle \
+	form-manifest verify \
+	"$repo_root/tests/fixtures/v8unpack_oracle/forms-802.manifest.json"
 uv run --project "$repo_root" python -m rlm_tools_bsl.v8unpack_oracle \
 	form-inventory \
 	--root "$live_root" \
@@ -179,6 +192,14 @@ python3 "$tool_dir/matrix.py" \
 	>"$run_root/matrix.out"
 jq -e '.classes == 544 and .success == 544 and .failed == 0' \
 	"$run_root/matrix/matrix.json" >/dev/null
+jq -e --slurpfile inventory "$run_root/inventory.json" '
+	.classes == ($inventory[0].structural_classes | length)
+	and .structural_classes_sha256 == $inventory[0].structural_classes_sha256
+	and .rows_sha256 == $inventory[0].rows_sha256
+	and ([.results[].class_key] | unique | length) == .classes
+' "$run_root/matrix/matrix.json" >/dev/null
+source_tree_after_sha256="$(form_source_sha256)"
+test "$source_tree_before_sha256" = "$source_tree_after_sha256"
 
 jq -n \
 	--arg status success \
@@ -202,6 +223,8 @@ jq -n \
 	--arg runtime_events_sha256 "$(sha256sum "$run_root/events.jsonl" | cut -d' ' -f1)" \
 	--arg inventory_sha256 "$(sha256sum "$run_root/inventory.json" | cut -d' ' -f1)" \
 	--arg matrix_sha256 "$(sha256sum "$run_root/matrix/matrix.json" | cut -d' ' -f1)" \
+	--arg source_tree_before_sha256 "$source_tree_before_sha256" \
+	--arg source_tree_after_sha256 "$source_tree_after_sha256" \
 	--slurpfile handler_paths "$handler_paths" \
 	--slurpfile runtime_events "$run_root/events.jsonl" \
 	'{
@@ -252,7 +275,9 @@ jq -n \
 			managed_parity: $managed_parity_sha256,
 			runtime_events: $runtime_events_sha256,
 			inventory: $inventory_sha256,
-			matrix: $matrix_sha256
+			matrix: $matrix_sha256,
+			source_tree_before: $source_tree_before_sha256,
+			source_tree_after: $source_tree_after_sha256
 		}
 	}' >"$run_root/result.json"
 

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import uuid
+import zlib
 
 from rlm_tools_bsl.format_detector import V8UNPACK_CATEGORY_MAP
 from rlm_tools_bsl.v8unpack_metadata import (
@@ -320,6 +322,60 @@ ORDINARY_ELEMENT_EVENTS = {
     ("TableField", "7"): "OnChangeAreaContent",
     ("TrackBar", "2147483647"): "OnChange",
 }
+
+# Exact descriptor keys proven by the 544-class v8unpack 1.2.9/802 matrix.
+# The compact payload is JSON compressed with zlib and base85; keeping it here
+# makes the runtime contract independent from tests and external source trees.
+_ORDINARY_HANDLER_CLASSES = frozenset(
+    tuple(row)
+    for row in json.loads(
+        zlib.decompress(
+            base64.b85decode(
+                "c-pO;TW=Ic5JvxtpFy6f%k<7GNKqo?Axd~dC|Y1itoR~18-<^rwK0VCZuj*0cDcw1I9=6M_0`UF&G_xxi_tD#TnsO5+I_kFba#Jq"
+                "IqZJM<#_q<4-bE_`?C90hTV^gcQ5LM9U(?cSd(x}#1X=qL>?i^A#uO{cejDDJVk1Ay}8-kZg+orvwnZQ`Qd7F{qf;{H$ZEFRf~3D"
+                "@VDI`KWx8(UI(oS+88BPK1J1Z9GL#b3W#9tF+vY}Y%o@_=l#f6GcnW|KVe&5vp3e6s4<PuXN}1{rtAs8A1mxB@}IZAU)_GX`yzzZ"
+                "K?@+HEs`dZCVN{aN10sqR@rAyL+&9)On8$pY-73U_YmBxf{D3FINpcjeH<eK6YZS`_A0PfaTc%I`ABRdv5l#ZP%aGsI5xoMHHE2Q"
+                "X@D+)hgUJL{@HHtZd-9VWM2Qd`S91PyU+E{-6sC%<&WE&>sD+Iv7c_%e{7heKd;|!t{L*n`j#SH*K<X^lq{`F$?rqC>c_ap-Y`5i"
+                "Vihf}s;K(qtALn*EJmcxI!BTtz_D*v?;$YBnHU6S6c`g27Z@RKp~OwdX*Tv#yCWM1&h!YvxFBjsa3nbb_R^yV6ZBw$9!$`K33@Q0"
+                "POHq!nG|Bs(t`_n@DudlyzE>k2N%l0g>rDAJ-SdrE~GYu7=++kjmd_c6zrrRqY29>4?b3YU4Oi~d$qkiQsFKiS_$MRleS2jY|~_$"
+                "E|Mn4*5ufl99xrPYjSMsq%V?sR$R6jBI$A^xLgS?<+FKY>iEbM5QYiI#Ds~`Bn<D|@XihI-0DY-fJjVCnBdV}VPb9)j`QI-ACB|k"
+                "IJ%Cb>o~fOqZ>F@fnyaoR)J#`I97pUm3Zfg_mOxXiT5#KuO{r(guN=~AjTt~gJ^8w>ezyVrh=sbn(C^luA1tqOW^W^rH6UFzTVt^"
+                "T;G2gvWzNd0Ibh+T$|}QpXoTC>2x7ifB!#RiGJ?cEXeUBXH-EY1xJTS90V5M+^=^vv%c?i*xI!!tZ-}!)x+%-1hB`GWNNIvV{q2P"
+                "QJ4MkaHTeH7?0n|eUDlL9owikP-~$@cX-uAs}3(tC=oJn#sp+B`HNFcf&@pBBVaGj2ca$uLJ>0wjIf^=1ZET%6Brj5AwMDHCzM#P"
+                "1ZL(;3i(MPKiSI9pg5;kGNCb6nUOOlARW!rcr!KLOpP~F<IU8B#%My5Goi_u(Bw>Lawar66Pla}P0oZSXF|iOPTqz5q>!H!@{>Y-"
+                "=GL{J3;oK4e&r`LALq@-dGm4Je4IBQ7n*_#O~Hkx;6hVyp((h~6kKQuE;I!fnt}^W!G)&aLQ`<1DTL4zLTCzcLQ@DX*WhvuL3$xb"
+                "F9hj@AiWTz7lQOckX{JV3qg7zNG}BGg(AHaWRxe!D1~B8p;%KW))b00g<?&iSW_t06pA&4Vojk~vs$c;4NWH$-Xs*nBoxFX6vQMH"
+                "#3U5NBoxFX6vQMHL=j?Lgjg3L)<uZhO7LwZ__h*!n*}>Fwj)0z`+)o9IQo%M>-v6MpA<Y;-2Jxtx!uCC)zbog>H^cL3zXgk<}dv4"
+                "a@_x}5aZXeW9L&2?RBhoI9yw%^=Knw_T2T#wuhb*{Dn2f)7P+$Ih3-(vvEw%5(|f1?IoNH$CRa>HT#|=PTEkOZ$ssLOU<WLT+hS("
+                "HMT>YehziE9xHufvfjvg9-UcUWpNmI(h}aW1ktp##2LKUuUBb_9J`mWu6Cd;F?THC9giiPvVzGgbVj1*ZK4|6A^sG^-^rN3%nOVO"
+                "cIr?1*BM`8<Rr<heZsG83E-kd*TAJWuLN+>qN!l}MW!m~Y5};C#|~{{VPjSI0EGf`3oyC|qkAwW{nmRy07wc<6etu}QJ|SPr+ILi"
+                "2d8;(8dj%absAPbLs-XV69^jCpkWOfrJ$QmY9YHUkatcvH;SBzT&Z&=+B3!8;=3O`Nc}~O9{T&6$w8v5o7#U9ql>7XwN3r+Ve}Bq"
+                "r{4JjUgb=Rq@C(+^X-5d=8qS(%a6MsCsz{Lc|+Pq3>Yy^ECqk*8F@kkCK40<`#64h(}yHRV&KTg5#xw+ghwodi1Ab=4|4K|C6CxV"
+                ")IBq<f5ZAWUH^vlZ&?3^^>0}J#>H&yS6v7a14l-V7)P8V!4V$h;HiumBguoDJjjifvGAZYK{~|jSelNd=~$Z1MdMsF&PC%~G|oli"
+                "TmjA%;QT|=xoDg#AovGh=n4p4IKc}ic;N&uoZ#Iyc&$bI<v@hY7-<wv^46I=mC5sxJTJ-fl3bn1Khh>$Y7-a1#3MKHFigDG3a^5~"
+                "Q@Y~FOt()S@tf6egDHU422HWpF-t3SmR9I2t<XtVp@XYJr$mJgeF~l76gtBxbR<*gIHS<%M4{7(!Vkv_K5{PjxUt}~!=j%Z7JN!q"
+                "_$giCr*ws%pA~+7R`|(Q(a&iLK6NSlNTBfh`@-*ui++P!`0W>Y)f6Fh$KrfQ*43R|7v6<mKPm4By!#JX8Br7"
+            )
+        ).decode()
+    )
+)
+_ORDINARY_FORM_VERSION_PAIRS = frozenset(
+    {
+        ("5", "0-20-16"),
+        ("5", "0-23-16"),
+        ("7", "0-5-1"),
+        ("7", "0-25-16"),
+        ("7", "0-26"),
+        ("9", "0-20-16"),
+        ("9", "0-23-16"),
+        ("9", "0-25-16"),
+        ("9", "0-26"),
+        ("9", "0-27"),
+        ("12", "0-26"),
+        ("12", "0-27"),
+        ("13", "0-27"),
+    }
+)
 
 
 @dataclass
@@ -672,6 +728,7 @@ def _ordinary_handlers(
     elements: dict,
 ) -> tuple[list[tuple], str, int, list[tuple[str, str, str]]]:
     from rlm_tools_bsl.v8unpack_oracle import (
+        _json_pointer,
         _ordinary_binding_candidates,
         _ordinary_element_binding_scope,
         _ordinary_element_types,
@@ -683,7 +740,28 @@ def _ordinary_handlers(
     diagnostics: list[tuple[str, str, str]] = []
     unsupported = 0
     failed = 0
+    local_version = str(main["obj_version"])
     element_version = main["Версия элементов формы"]
+    if (local_version, element_version) not in _ORDINARY_FORM_VERSION_PAIRS:
+        return [], "unsupported", 1, [
+            ("unsupported_contract", "handler", rel_elements)
+        ]
+
+    def descriptor(
+        path: tuple[object, ...],
+        scope: str,
+        element_type: str,
+        raw_event: str,
+        positional_prefix: int,
+    ) -> tuple[str, ...]:
+        return (
+            local_version,
+            element_version,
+            _json_pointer(path[positional_prefix:]),
+            scope,
+            element_type,
+            raw_event,
+        )
 
     def append(
         *,
@@ -699,6 +777,10 @@ def _ordinary_handlers(
     ) -> None:
         nonlocal unsupported
         if scope == "command":
+            return
+        if descriptor(path, scope, element_type, raw_event, positional_prefix) not in _ORDINARY_HANDLER_CLASSES:
+            unsupported += 1
+            diagnostics.append(("unsupported_fragment", "handler", source))
             return
         event = _ordinary_event_name(
             scope=scope,
@@ -743,6 +825,10 @@ def _ordinary_handlers(
     ) -> None:
         nonlocal failed, unsupported
         if scope == "command":
+            return
+        if descriptor(path, scope, element_type, raw_event, positional_prefix) not in _ORDINARY_HANDLER_CLASSES:
+            unsupported += 1
+            diagnostics.append(("unsupported_fragment", "handler", source))
             return
         event = _ordinary_event_name(
             scope=scope,

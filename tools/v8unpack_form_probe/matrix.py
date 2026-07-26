@@ -57,6 +57,23 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def tree_sha256(root: Path, *, exclude: set[Path] | None = None) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(
+        item
+        for item in root.rglob("*")
+        if item.is_file() and item.suffix in {".json", ".bsl"}
+    ):
+        relative = path.relative_to(root)
+        if exclude is not None and relative in exclude:
+            continue
+        digest.update(relative.as_posix().encode())
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -205,6 +222,17 @@ def build_probe_class(
     ]
     if len(differences) != 2 or {item["after"] for item in differences} != {quoted(changed_handler)}:
         raise ValueError(f"non-minimal round-trip delta: {differences}")
+    excluded_roundtrip_paths = {relative_source, Path("Configuration.json")}
+    base_unchanged_sha256 = tree_sha256(
+        base_roundtrip,
+        exclude=excluded_roundtrip_paths,
+    )
+    changed_unchanged_sha256 = tree_sha256(
+        changed_roundtrip,
+        exclude=excluded_roundtrip_paths,
+    )
+    if base_unchanged_sha256 != changed_unchanged_sha256:
+        raise ValueError("round-trip changed files outside the target JSON")
     delta_path = class_root / "delta.json"
     write_json(delta_path, differences)
     return {
@@ -220,6 +248,8 @@ def build_probe_class(
             "base_json": sha256(base_roundtrip / relative_source),
             "changed_json": sha256(changed_roundtrip / relative_source),
             "delta": sha256(delta_path),
+            "base_unchanged_tree": base_unchanged_sha256,
+            "changed_unchanged_tree": changed_unchanged_sha256,
         },
     }
 
@@ -253,6 +283,19 @@ def build_matrix(
 
     for row in inventory["rows"]:
         candidates_by_class.setdefault(class_key(row), []).append(row)
+    inventory_classes = {
+        (
+            row["local_version"],
+            row["element_version"],
+            row["positional_path"],
+            row["scope"],
+            row["element_type"],
+            row["raw_event"],
+        )
+        for row in inventory["structural_classes"]
+    }
+    if set(candidates_by_class) != inventory_classes:
+        raise ValueError("inventory rows and structural classes differ")
 
     output_root.mkdir(parents=True, exist_ok=True)
     ib_dir = output_root / "ib"
@@ -363,7 +406,7 @@ def main() -> int:
             ensure_ascii=False,
         )
     )
-    return 0
+    return int(bool(report["failed"]))
 
 
 if __name__ == "__main__":

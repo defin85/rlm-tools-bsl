@@ -9,7 +9,15 @@ from rlm_tools_bsl.bsl_index import IndexBuilder, IndexReader, _refresh_form_ele
 from rlm_tools_bsl.format_detector import detect_format
 from rlm_tools_bsl.v8unpack_forms import (
     V8UNPACK_FORM_FAMILIES,
+    _ORDINARY_FORM_VERSION_PAIRS,
+    _ORDINARY_HANDLER_CLASSES,
+    _ordinary_event_name,
     collect_v8unpack_forms,
+)
+from rlm_tools_bsl.v8unpack_oracle import (
+    _json_bytes,
+    _sha256,
+    build_form_inventory,
 )
 
 
@@ -33,6 +41,7 @@ def _form(
     form_name: str,
     *,
     element_version: str = "1",
+    local_version: str = "13",
 ) -> None:
     if family == "CommonForm":
         folder = tmp_path / family / form_name
@@ -42,7 +51,7 @@ def _form(
         folder / f"{form_kind}.json",
         {
             "name": form_name,
-            "obj_version": "13",
+            "obj_version": local_version,
             "Тип формы": "1",
             "Версия элементов формы": element_version,
             "form": [
@@ -96,8 +105,10 @@ def _ordinary_form(
     tmp_path: Path,
     *,
     element_version: str = "0-27",
+    local_version: str = "13",
     raw_event: str = "70001",
     handler: str = "ОбычныйПриОткрытии",
+    slot: int | None = None,
 ) -> Path:
     _form(
         tmp_path,
@@ -106,12 +117,13 @@ def _ordinary_form(
         "DocumentForm",
         "Форма",
         element_version=element_version,
+        local_version=local_version,
     )
     folder = tmp_path / "Document" / "Документ" / "DocumentForm" / "Форма"
     main_path = folder / "DocumentForm.json"
     main = json.loads(main_path.read_text())
     main["Тип формы"] = "0"
-    slot = 1 if element_version == "0-26" else 2
+    slot = slot if slot is not None else 2
     form_payload = [None, None, None, None, [None] * (slot + 1)]
     form_payload[4][slot] = [
         raw_event,
@@ -193,10 +205,28 @@ def test_ordinary_0_27_emits_proven_on_open_handler(tmp_path):
     assert result.status == "partial"
 
 
-@pytest.mark.parametrize("element_version", ["0-26", "0-5-1", "0-20-16", "0-23-16", "0-25-16"])
-def test_other_ordinary_versions_decode_proven_handlers(tmp_path, element_version):
+@pytest.mark.parametrize(
+    ("element_version", "local_version", "slot"),
+    [
+        ("0-26", "12", 2),
+        ("0-20-16", "9", 1),
+        ("0-23-16", "9", 1),
+        ("0-25-16", "9", 1),
+    ],
+)
+def test_other_ordinary_versions_decode_proven_handlers(
+    tmp_path,
+    element_version,
+    local_version,
+    slot,
+):
     _root(tmp_path)
-    _ordinary_form(tmp_path, element_version=element_version)
+    _ordinary_form(
+        tmp_path,
+        element_version=element_version,
+        local_version=local_version,
+        slot=slot,
+    )
 
     result = collect_v8unpack_forms(tmp_path)
 
@@ -208,9 +238,257 @@ def test_other_ordinary_versions_decode_proven_handlers(tmp_path, element_versio
     assert projections["commands"] == "unsupported"
 
 
+def test_known_event_at_unknown_ordinary_position_is_not_guessed(tmp_path):
+    _root(tmp_path)
+    _ordinary_form(tmp_path, slot=3)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] == "handler" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "unsupported"
+
+
+def test_ordinary_inventory_points_to_outer_event_and_handler(tmp_path):
+    _root(tmp_path)
+    _ordinary_form(tmp_path)
+
+    row = build_form_inventory(tmp_path)["rows"][0]
+
+    assert row["raw_event_pointer"] == "/form/0/0/4/2/0"
+    assert row["handler_pointer"] == "/form/0/0/4/2/2/1"
+    assert row["handler_mirror_pointer"] == "/form/0/0/4/2/2/2/1"
+
+
+def test_closed_ordinary_handler_registry_covers_every_proven_class():
+    def pointer_parts(pointer: str) -> tuple[object, ...]:
+        return tuple(
+            int(value) if value.isdigit() else value
+            for value in pointer.removeprefix("/").split("/")
+        )
+
+    events = {
+        _ordinary_event_name(
+            scope=scope,
+            element_type=element_type,
+            raw_event=raw_event,
+            path=pointer_parts(path),
+            element_version=element_version,
+            family="Document",
+            owner="",
+            form_name="",
+            element_name="",
+        )
+        for _local_version, element_version, path, scope, element_type, raw_event
+        in _ORDINARY_HANDLER_CLASSES
+    }
+
+    assert len(_ORDINARY_HANDLER_CLASSES) == 544
+    assert "" not in events
+    assert len(events) == 58
+    assert _sha256(_json_bytes(sorted(_ORDINARY_HANDLER_CLASSES))) == (
+        "af0ee3fd7c15aae10085dcdb5bd1d242c5eca40b947649dfec4bd109c2ec51b3"
+    )
+    assert _sha256(_json_bytes(sorted(events))) == (
+        "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c"
+    )
+
+
+def test_table_raw50_exception_does_not_leak_to_other_forms():
+    values = {
+        "scope": "element",
+        "element_type": "Table",
+        "raw_event": "50",
+        "path": ("raw", 2, 4, 1, 2),
+        "element_version": "0-26",
+        "family": "Document",
+        "element_name": "Продукция",
+    }
+
+    assert _ordinary_event_name(
+        **values,
+        owner="ПередачаТоваров",
+        form_name="ФормаПодбора",
+    ) == "ExternalEvent"
+    assert _ordinary_event_name(
+        **values,
+        owner="ДругойДокумент",
+        form_name="ФормаПодбора",
+    ) == "NewWriteProcessing"
+
+
+def test_parse_form_keeps_duplicate_proven_element_handlers(tmp_path, monkeypatch):
+    _root(tmp_path)
+    folder = _ordinary_form(
+        tmp_path,
+        element_version="0-26",
+        local_version="12",
+    )
+    marker = "e1692cc2-605b-4535-84dd-28440238746c"
+    binding = ["3", '"ПолеПриИзменении"', ["1", '"ПолеПриИзменении"']]
+    raw = [None, None, [None, None, None, None, [None, ["2147483647", marker, binding], None, [
+        "2147483647",
+        marker,
+        binding,
+    ]]]]
+    elements_path = folder / "DocumentForm.elem.json"
+    elements = json.loads(elements_path.read_text())
+    elements["tree"] = [{"name": "Поле", "type": "Field"}]
+    elements["data"] = {
+        "Страница/Поле": {
+            "raw": raw,
+            "ПутьКДанным": "Объект.Поле",
+        }
+    }
+    _write(elements_path, elements)
+    (folder / "DocumentForm.obj.bsl").write_text(
+        "Процедура ПолеПриИзменении()\nКонецПроцедуры\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RLM_INDEX_DIR", str(tmp_path / ".index"))
+
+    db_path = IndexBuilder().build(
+        str(tmp_path),
+        build_calls=False,
+        build_fts=False,
+        build_synonyms=False,
+    )
+    reader = IndexReader(db_path)
+    helpers = make_bsl_helpers(
+        base_path=str(tmp_path),
+        resolve_safe=lambda path: tmp_path / path,
+        read_file_fn=lambda path: (tmp_path / path).read_text(encoding="utf-8-sig"),
+        grep_fn=lambda *_args, **_kwargs: [],
+        glob_files_fn=lambda pattern: [
+            path.relative_to(tmp_path).as_posix()
+            for path in tmp_path.glob(pattern)
+        ],
+        format_info=detect_format(tmp_path),
+        idx_reader=reader,
+    )
+
+    parsed = helpers["parse_form"]("Документ", handler="ПолеПриИзменении")
+    form_filtered = helpers["parse_form"](
+        "Документ",
+        handler="ОбычныйПриОткрытии",
+    )
+    reader.close()
+
+    assert len(parsed[0]["handlers"]) == 2
+    assert {
+            (
+                row["scope"],
+                row["element"],
+            row["element_type"],
+            row["event"],
+            row["handler"],
+            row["data_path"],
+        )
+        for row in parsed[0]["handlers"]
+    } == {
+        (
+            "element",
+            "Поле",
+            "Field",
+            "OnChange",
+            "ПолеПриИзменении",
+            "Объект.Поле",
+        )
+    }
+    assert parsed[0]["commands"] == []
+    assert parsed[0]["projections"]["handlers"] == "complete"
+    assert parsed[0]["projections"]["commands"] == "unsupported"
+    assert form_filtered[0]["handlers"] == [
+        {
+            "element": "",
+            "event": "OnOpen",
+            "handler": "ОбычныйПриОткрытии",
+            "element_type": "",
+            "data_path": "",
+            "scope": "form",
+        }
+    ]
+    assert form_filtered[0]["attributes"] == parsed[0]["attributes"]
+    assert form_filtered[0]["projections"] == parsed[0]["projections"]
+
+
+def test_proven_ordinary_form_without_handlers_is_empty(tmp_path):
+    _root(tmp_path)
+    _form(
+        tmp_path,
+        "Document",
+        "Документ",
+        "DocumentForm",
+        "Форма",
+        element_version="0-5-1",
+        local_version="7",
+    )
+    main_path = tmp_path / "Document" / "Документ" / "DocumentForm" / "Форма" / "DocumentForm.json"
+    main = json.loads(main_path.read_text())
+    main["Тип формы"] = "0"
+    main["form"] = []
+    _write(main_path, main)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] == "handler" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "empty"
+
+
+def test_unknown_ordinary_version_pair_without_handlers_is_unsupported(tmp_path):
+    _root(tmp_path)
+    _form(
+        tmp_path,
+        "Document",
+        "Документ",
+        "DocumentForm",
+        "Форма",
+        element_version="0-5-1",
+        local_version="13",
+    )
+    main_path = tmp_path / "Document" / "Документ" / "DocumentForm" / "Форма" / "DocumentForm.json"
+    main = json.loads(main_path.read_text())
+    main["Тип формы"] = "0"
+    main["form"] = []
+    _write(main_path, main)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "unsupported"
+    assert len(_ORDINARY_FORM_VERSION_PAIRS) == 13
+
+
 def test_unknown_ordinary_event_is_not_guessed(tmp_path):
     _root(tmp_path)
     _ordinary_form(tmp_path, raw_event="79999")
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] == "handler" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "unsupported"
+
+
+def test_known_ordinary_descriptor_in_unknown_local_version_is_not_guessed(tmp_path):
+    _root(tmp_path)
+    _ordinary_form(tmp_path, local_version="7")
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert not any(row[3] == "handler" for row in result.rows)
+    marker = next(row for row in result.rows if row[3] == "form")
+    assert json.loads(marker[12])["projections"]["handlers"] == "unsupported"
+
+
+def test_binding_without_event_marker_is_not_guessed(tmp_path):
+    _root(tmp_path)
+    folder = _ordinary_form(tmp_path)
+    main_path = folder / "DocumentForm.json"
+    main = json.loads(main_path.read_text())
+    main["form"][0][0][4][2][1] = "future-marker"
+    _write(main_path, main)
 
     result = collect_v8unpack_forms(tmp_path)
 
@@ -326,12 +604,18 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
 
     with sqlite3.connect(db_path) as conn:
         before = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
+        before_meta = dict(
+            conn.execute(
+                "SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"
+            )
+        )
     builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
         after = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
         meta = dict(conn.execute("SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"))
 
     assert after == before
+    assert meta == before_meta
     assert meta["v8unpack_form_status"] == "complete"
     assert meta["v8unpack_form_total"] == "1"
 
@@ -360,7 +644,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
     assert filtered[0]["projections"] == parsed[0]["projections"]
 
     with sqlite3.connect(db_path) as conn:
-        conn.execute("UPDATE index_meta SET value='19' WHERE key IN ('builder_version', 'version')")
+        conn.execute("UPDATE index_meta SET value='20' WHERE key IN ('builder_version', 'version')")
     delta = builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
         flags = dict(
@@ -369,7 +653,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
                 "WHERE key IN ('builder_version', 'has_calls', 'has_fts', 'has_synonyms')"
             )
         )
-    assert delta["rebuild_reason"] == "schema upgrade v19->20"
+    assert delta["rebuild_reason"] == "schema upgrade v20->21"
     assert flags == {
         "builder_version": "21",
         "has_calls": "0",
