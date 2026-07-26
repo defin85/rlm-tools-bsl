@@ -8,6 +8,7 @@ import pytest
 
 import rlm_tools_bsl.bsl_index as bsl_index
 from rlm_tools_bsl.bsl_index import IndexBuilder, IndexReader
+from rlm_tools_bsl.v8unpack_forms import _ORDINARY_HANDLER_CLASSES
 from rlm_tools_bsl.v8unpack_metadata import (
     GENERATED_TYPE_ID_POSITIONS,
     MAX_JSON_BYTES,
@@ -36,6 +37,7 @@ from rlm_tools_bsl.v8unpack_oracle import (
     _verify_manifest,
     projection_summary,
     verify_metadata_inventory_manifest,
+    verify_form_inventory,
     verify_manifests,
     verify_form_manifest,
 )
@@ -520,6 +522,41 @@ def test_form_oracle_manifest_is_self_contained_and_complete():
     assert manifest["inventory"]["structural_classes"] == 544
     assert manifest["inventory"]["projections"]["total"] == 4 * 4037
     assert manifest["handler_contracts"][0]["canonical_event"] == "OnOpen"
+
+
+def test_form_inventory_requires_exact_live_index_comparison():
+    manifest = verify_form_manifest(Path(__file__).parent / "fixtures" / "v8unpack_oracle" / "forms-802.manifest.json")
+    expected = manifest["inventory"]
+    count = expected["handler_rows"]["candidates"]
+    report = {
+        "schema": "v8unpack_form_inventory_v2",
+        **expected,
+        "structural_classes": [
+            {
+                "local_version": row[0],
+                "element_version": row[1],
+                "positional_path": row[2],
+                "scope": row[3],
+                "element_type": row[4],
+                "raw_event": row[5],
+            }
+            for row in _ORDINARY_HANDLER_CLASSES
+        ],
+        "index_comparison": {
+            "handlers_total": count,
+            "candidate_handlers": count,
+            "extracted": count,
+            "missed": 0,
+            "ambiguous": 0,
+            "misclassified": 0,
+            "unexpected_index_rows": 0,
+        },
+    }
+    verify_form_inventory(report, manifest)
+
+    report["index_comparison"]["misclassified"] = 1
+    with pytest.raises(ValueError, match="live form inventory differs"):
+        verify_form_inventory(report, manifest)
 
 
 def test_verified_builtin_type_uuids_match_xml_representation():

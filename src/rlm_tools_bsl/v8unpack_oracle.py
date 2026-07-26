@@ -910,7 +910,7 @@ def verify_form_manifest(path: str | Path) -> dict:
             "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
             "descriptor_keys_sha256": descriptor_keys_sha256,
             "ordinary_form_version_pairs_sha256": version_pairs_sha256,
-            "proof_matrix_sha256": "6ab68f2f6f7b245a2491e54dbf454624dd5bb4fbc409aaaf92d5df9301c42094",
+            "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
             "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
         }
         or unsupported.get("commands", {}).get("element_versions")
@@ -972,6 +972,84 @@ def _binding_context(parent: list, index: int) -> dict[str, object]:
 _ORDINARY_EVENT_MARKER_UUID = "e1692cc2-605b-4535-84dd-28440238746c"
 
 
+def _ordinary_binding_records(
+    value: object,
+    path: tuple[object, ...] = (),
+    *,
+    parent: list | None = None,
+    parent_index: int = -1,
+):
+    """Yield valid and malformed outer legacy binding records in one traversal."""
+    stack = [(value, path, parent, parent_index)]
+    while stack:
+        current, current_path, current_parent, current_index = stack.pop()
+        if isinstance(current, dict):
+            for key, item in reversed(tuple(current.items())):
+                if isinstance(item, (list, dict)):
+                    stack.append((item, current_path + (key,), None, -1))
+            continue
+        if not isinstance(current, list):
+            continue
+        marker_record = len(current) >= 2 and current[1] == _ORDINARY_EVENT_MARKER_UUID
+        binding = current[2] if marker_record and len(current) > 2 else current
+        binding_record = marker_record or (len(current) >= 3 and current[0] == "3")
+        valid = binding_record and (
+            isinstance(binding, list)
+            and len(binding) >= 3
+            and binding[0] == "3"
+            and isinstance(binding[1], str)
+            and len(binding[1]) >= 2
+            and binding[1][0] == '"'
+            and binding[1][-1] == '"'
+            and isinstance(binding[2], list)
+            and len(binding[2]) >= 2
+            and binding[2][0] == "1"
+            and isinstance(binding[2][1], str)
+            and len(binding[2][1]) >= 2
+            and binding[2][1][0] == '"'
+            and binding[2][1][-1] == '"'
+        )
+        if marker_record:
+            raw_event = current[0]
+            if (
+                not isinstance(raw_event, (str, int))
+                or not str(raw_event).isdigit()
+            ):
+                for index in range(len(current) - 1, -1, -1):
+                    item = current[index]
+                    if isinstance(item, (list, dict)):
+                        stack.append((item, current_path + (index,), current, index))
+                continue
+            if valid and (outer_handler := _quoted(binding[1])):
+                yield current_path + (2,), str(raw_event), outer_handler, _binding_context(current, 2)
+            elif not valid:
+                yield current_path + (2,), str(raw_event), None, {}
+            continue
+        if (
+            valid
+            and binding is current
+            and (outer_handler := _quoted(current[1]))
+        ):
+            raw_event = (
+                str(current_parent[0])
+                if current_parent
+                and current_index >= 2
+                and len(current_parent) >= 2
+                and current_parent[1] == _ORDINARY_EVENT_MARKER_UUID
+                and isinstance(current_parent[0], (str, int))
+                else ""
+            )
+            yield current_path, raw_event, outer_handler, _binding_context(
+                current_parent or [],
+                current_index,
+            )
+            continue
+        for index in range(len(current) - 1, -1, -1):
+            item = current[index]
+            if isinstance(item, (list, dict)):
+                stack.append((item, current_path + (index,), current, index))
+
+
 def _ordinary_binding_candidates(
     value: object,
     path: tuple[object, ...] = (),
@@ -979,79 +1057,23 @@ def _ordinary_binding_candidates(
     parent: list | None = None,
     parent_index: int = -1,
 ):
-    """Yield the outer legacy binding records without interpreting their slots."""
-    if isinstance(value, list):
-        if (
-            len(value) >= 3
-            and value[0] == "3"
-            and (outer_handler := _quoted(value[1]))
-            and isinstance(value[2], list)
-            and len(value[2]) >= 2
-            and value[2][0] == "1"
-            and isinstance(value[2][1], str)
-            and len(value[2][1]) >= 2
-            and value[2][1][0] == '"'
-            and value[2][1][-1] == '"'
-        ):
-            raw_event = (
-                str(parent[0])
-                if parent
-                and parent_index >= 2
-                and len(parent) >= 2
-                and parent[1] == _ORDINARY_EVENT_MARKER_UUID
-                and isinstance(parent[0], (str, int))
-                else ""
-            )
-            yield path, raw_event, outer_handler, _binding_context(parent or [], parent_index)
-            return
-        for index, item in enumerate(value):
-            yield from _ordinary_binding_candidates(
-                item,
-                path + (index,),
-                parent=value,
-                parent_index=index,
-            )
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            yield from _ordinary_binding_candidates(item, path + (key,))
+    for record in _ordinary_binding_records(
+        value,
+        path,
+        parent=parent,
+        parent_index=parent_index,
+    ):
+        if record[2] is not None:
+            yield record
 
 
 def _ordinary_malformed_bindings(
     value: object,
     path: tuple[object, ...] = (),
 ):
-    if isinstance(value, list):
-        if (
-            len(value) >= 2
-            and isinstance(value[0], (str, int))
-            and str(value[0]).isdigit()
-            and value[1] == _ORDINARY_EVENT_MARKER_UUID
-        ):
-            binding = value[2] if len(value) > 2 else None
-            valid = (
-                isinstance(binding, list)
-                and len(binding) >= 3
-                and binding[0] == "3"
-                and isinstance(binding[1], str)
-                and len(binding[1]) >= 2
-                and binding[1][0] == '"'
-                and binding[1][-1] == '"'
-                and isinstance(binding[2], list)
-                and len(binding[2]) >= 2
-                and binding[2][0] == "1"
-                and isinstance(binding[2][1], str)
-                and len(binding[2][1]) >= 2
-                and binding[2][1][0] == '"'
-                and binding[2][1][-1] == '"'
-            )
-            if not valid:
-                yield path + (2,), str(value[0])
-            return
-        for index, item in enumerate(value):
-            yield from _ordinary_malformed_bindings(item, path + (index,))
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            yield from _ordinary_malformed_bindings(item, path + (key,))
+    for record_path, raw_event, handler, _context in _ordinary_binding_records(value, path):
+        if handler is None:
+            yield record_path, raw_event
 
 
 def _ordinary_element_types(tree: object) -> dict[str, set[str]]:
@@ -1433,7 +1455,11 @@ def build_form_inventory(
                 row["data_path"],
             )
 
-        candidates = [index_key(row) for row in rows if row["scope"] in {"form", "element"}]
+        candidates = [
+            (row, index_key(row))
+            for row in rows
+            if row["scope"] != "ambiguous"
+        ]
         indexed = [row for row in indexed if row[:3] in ordinary_form_keys]
         indexed_counter = Counter(indexed)
         extracted_ids: Counter = Counter()
@@ -1441,21 +1467,15 @@ def build_form_inventory(
         ambiguous_ids: Counter = Counter()
         misclassified_ids: Counter = Counter()
         remaining_candidates = []
-        for row in rows:
-            if row["scope"] == "ambiguous":
-                ambiguous_ids[row["candidate_id"]] += 1
-                continue
-            key = index_key(row)
-            is_v19_contract = (
-                row["element_version"] == "0-27"
-                and row["scope"] == "form"
-                and row["json_pointer"] == "/form/0/0/4/2/2"
-            )
-            if is_v19_contract and indexed_counter[key]:
+        for row, key in candidates:
+            if indexed_counter[key]:
                 extracted_ids[row["candidate_id"]] += 1
                 indexed_counter[key] -= 1
             else:
                 remaining_candidates.append((row, key))
+        for row in rows:
+            if row["scope"] == "ambiguous":
+                ambiguous_ids[row["candidate_id"]] += 1
         indexed_identities = Counter(
             (row[0], row[1], row[2], row[6])
             for row, count in indexed_counter.items()
@@ -1511,6 +1531,16 @@ def verify_form_inventory(report: dict, manifest: dict) -> None:
         )
         for row in report.get("structural_classes", [])
     }
+    comparison = report.get("index_comparison")
+    invalid_index_comparison = comparison is not None and (
+        comparison.get("handlers_total") != expected.get("handler_rows", {}).get("candidates")
+        or comparison.get("candidate_handlers") != expected.get("handler_rows", {}).get("candidates")
+        or comparison.get("extracted") != expected.get("handler_rows", {}).get("candidates")
+        or any(
+            comparison.get(key) != 0
+            for key in ("missed", "ambiguous", "misclassified", "unexpected_index_rows")
+        )
+    )
     if (
         report.get("schema") != "v8unpack_form_inventory_v2"
         or report.get("forms") != expected.get("forms")
@@ -1526,6 +1556,7 @@ def verify_form_inventory(report: dict, manifest: dict) -> None:
         or report.get("handler_rows") != expected.get("handler_rows")
         or report.get("projections") != expected.get("projections")
         or classes != _ORDINARY_HANDLER_CLASSES
+        or invalid_index_comparison
     ):
         raise ValueError("live form inventory differs from manifest")
 

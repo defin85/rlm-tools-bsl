@@ -1,6 +1,6 @@
 {
   "schema": "v8unpack_forms_802_v2",
-  "content_sha256": "cd4abbf09f148088a925d9bd4f653b165c866410720fe27dcca12c70e4d4600b",
+  "content_sha256": "af7eaf26c3ab2bdd379d8c91749c71166a690d8f908a436a706bef9386404221",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -201,7 +201,7 @@
     "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
     "descriptor_keys_sha256": "af0ee3fd7c15aae10085dcdb5bd1d242c5eca40b947649dfec4bd109c2ec51b3",
     "ordinary_form_version_pairs_sha256": "bb3901fc9a79ae18051f68cb1c137e89e5a3d1755a7c51a384f028e61c6e22e3",
-    "proof_matrix_sha256": "6ab68f2f6f7b245a2491e54dbf454624dd5bb4fbc409aaaf92d5df9301c42094",
+    "proof_matrix_sha256": "38bfd3ac71b2a60166d714083ac81557f8fa3195b5f6c4030c5b0ed6f630aedc",
     "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime"
   },
   "handler_contracts": [

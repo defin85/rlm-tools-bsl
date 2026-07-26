@@ -12,6 +12,7 @@ import zlib
 from rlm_tools_bsl.format_detector import V8UNPACK_CATEGORY_MAP
 from rlm_tools_bsl.v8unpack_metadata import (
     BUILTIN_TYPE_UUIDS,
+    V8UnpackMetadataResult,
     collect_v8unpack_metadata,
     read_v8unpack_json,
 )
@@ -457,13 +458,15 @@ def _diagnostics(events: list[tuple[str, str, str]]) -> list[dict]:
 
 def _form_metadata_contract(
     root: Path,
+    result: V8UnpackMetadataResult | None = None,
 ) -> tuple[
     dict[str, str],
     dict[str, str],
     dict[tuple[str, str, str], str],
     dict[str, str],
 ]:
-    result = collect_v8unpack_metadata(root)
+    if result is None:
+        result = collect_v8unpack_metadata(root)
     resolved: dict[str, str] = {}
     ambiguous: set[str] = set()
     for type_uuid, canonical, type_form, _source in result.metadata_type_ids:
@@ -728,12 +731,11 @@ def _ordinary_handlers(
     elements: dict,
 ) -> tuple[list[tuple], str, int, list[tuple[str, str, str]]]:
     from rlm_tools_bsl.v8unpack_oracle import (
+        _ordinary_binding_records,
         _json_pointer,
-        _ordinary_binding_candidates,
         _ordinary_element_binding_scope,
         _ordinary_element_types,
         _ordinary_main_binding_role,
-        _ordinary_malformed_bindings,
     )
 
     rows: list[tuple] = []
@@ -848,37 +850,32 @@ def _ordinary_handlers(
             unsupported += 1
             diagnostics.append(("unsupported_fragment", "handler", source))
 
-    for path, raw_event, handler, _context in _ordinary_binding_candidates(main.get("form"), ("form",)):
+    for path, raw_event, handler, _context in _ordinary_binding_records(main.get("form"), ("form",)):
         direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
         scope, element_name, element_type = (
             ("form", "", "")
             if direct_form_slot
             else _ordinary_main_binding_role(main.get("form"), path, raw_event)
         )
-        append(
-            source=rel_elements,
-            path=path,
-            raw_event=raw_event,
-            handler=handler,
-            scope=scope,
-            element_name=element_name,
-            element_type=element_type,
-        )
-    for path, raw_event in _ordinary_malformed_bindings(main.get("form"), ("form",)):
-        direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
-        scope, element_name, element_type = (
-            ("form", "", "")
-            if direct_form_slot
-            else _ordinary_main_binding_role(main.get("form"), path, raw_event)
-        )
-        record_malformed(
-            source=rel_elements,
-            path=path,
-            raw_event=raw_event,
-            scope=scope,
-            element_name=element_name,
-            element_type=element_type,
-        )
+        if handler is None:
+            record_malformed(
+                source=rel_elements,
+                path=path,
+                raw_event=raw_event,
+                scope=scope,
+                element_name=element_name,
+                element_type=element_type,
+            )
+        else:
+            append(
+                source=rel_elements,
+                path=path,
+                raw_event=raw_event,
+                handler=handler,
+                scope=scope,
+                element_name=element_name,
+                element_type=element_type,
+            )
 
     element_types = _ordinary_element_types(elements.get("tree"))
     data = elements.get("data")
@@ -889,34 +886,32 @@ def _ordinary_handlers(
             element_name = element_key.rsplit("/", 1)[-1]
             types = sorted(element_types.get(element_name, set()))
             element_type = types[0] if len(types) == 1 else "|".join(types)
-            for path, raw_event, handler, _context in _ordinary_binding_candidates(
+            for path, raw_event, handler, _context in _ordinary_binding_records(
                 details.get("raw"),
                 ("data", element_key, "raw"),
             ):
-                append(
-                    source=rel_elements,
-                    path=path,
-                    raw_event=raw_event,
-                    handler=handler,
-                    scope=_ordinary_element_binding_scope(element_type, path, raw_event),
-                    element_name=element_name,
-                    element_type=element_type,
-                    data_path=str(details.get("ПутьКДанным", "")),
-                    positional_prefix=2,
-                )
-            for path, raw_event in _ordinary_malformed_bindings(
-                details.get("raw"),
-                ("data", element_key, "raw"),
-            ):
-                record_malformed(
-                    source=rel_elements,
-                    path=path,
-                    raw_event=raw_event,
-                    scope=_ordinary_element_binding_scope(element_type, path, raw_event),
-                    element_name=element_name,
-                    element_type=element_type,
-                    positional_prefix=2,
-                )
+                if handler is None:
+                    record_malformed(
+                        source=rel_elements,
+                        path=path,
+                        raw_event=raw_event,
+                        scope=_ordinary_element_binding_scope(element_type, path, raw_event),
+                        element_name=element_name,
+                        element_type=element_type,
+                        positional_prefix=2,
+                    )
+                else:
+                    append(
+                        source=rel_elements,
+                        path=path,
+                        raw_event=raw_event,
+                        handler=handler,
+                        scope=_ordinary_element_binding_scope(element_type, path, raw_event),
+                        element_name=element_name,
+                        element_type=element_type,
+                        data_path=str(details.get("ПутьКДанным", "")),
+                        positional_prefix=2,
+                    )
     state = "failed" if failed else "unsupported" if unsupported else ("complete" if rows else "empty")
     return rows, state, failed + unsupported, diagnostics
 
@@ -1167,7 +1162,11 @@ def _form_entries(root: Path):
                 yield family, owner_dir.name, form_dir.name, form_dir, form_kind
 
 
-def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
+def collect_v8unpack_forms(
+    root: str | Path,
+    *,
+    metadata_result: V8UnpackMetadataResult | None = None,
+) -> V8UnpackFormResult:
     root_path = Path(root).resolve()
     result = V8UnpackFormResult()
     events: list[tuple[str, str, str]] = []
@@ -1177,7 +1176,10 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
         result.status = "unsupported"
         result.diagnostics = _diagnostics([("malformed_required_json", "configuration", "Configuration.json")])
         return result
-    type_refs, main_tables, attribute_names, reference_names = _form_metadata_contract(root_path)
+    type_refs, main_tables, attribute_names, reference_names = _form_metadata_contract(
+        root_path,
+        metadata_result,
+    )
     if config.get("v8unpack") != "1.2.9" or config.get("obj_version") != "802":
         result.status = "unsupported"
         result.diagnostics = _diagnostics([("unsupported_root_contract", "configuration", "Configuration.json")])
@@ -1200,6 +1202,19 @@ def collect_v8unpack_forms(root: str | Path) -> V8UnpackFormResult:
             uuid.UUID(str(identity["uuid"]))
             if set(elements) != {"params", "props", "commands", "tree", "data"}:
                 raise ValueError("form elements shape mismatch")
+            if not isinstance(elements["data"], dict) or any(
+                not isinstance(key, str)
+                or (
+                    not isinstance(value, dict)
+                    and not (
+                        key.rsplit("/", 1)[-1] == "-pages-"
+                        and isinstance(value, list)
+                        and all(isinstance(item, str) for item in value)
+                    )
+                )
+                for key, value in elements["data"].items()
+            ):
+                raise ValueError("form elements data shape mismatch")
         except (KeyError, OSError, ValueError, json.JSONDecodeError):
             result.failed += 1
             result.add_projections({role: "failed" for role in PROJECTION_ROLES})

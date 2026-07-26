@@ -839,9 +839,16 @@ LIMIT 30;
 `form-inventory` сверяет не только 4 037 форм и 544 класса, но и полное
 мультимножество 53 328 строк обычных обработчиков: количество и хеш
 кандидатов должны совпасть с количеством и хешем строк сборщика, а
-`missing=extra=0`. Одношаговый пробник выполняет 544 независимые
+`missing=extra=0`. При переданном `--index` дополнительно обязательны
+`extracted=53328` и нулевые `missed`, `misclassified`, `ambiguous`,
+`unexpected_index_rows`. Одношаговый пробник выполняет 544 независимые
 CF→JSON-дельты, фиксирует версии и хеши, проверяет неизменность исходного
 дерева и запускает графический клиент только внутри `xpra`.
+
+На контрольном снимке `tn_bp20_custom_mcp` три прохода форм v21 заняли
+19,67/19,86/19,94 с при максимуме 178 164 КиБ RSS. Три полные сборки заняли
+169,97/171,47/173,26 с, медиана — 171,47 с. Полная сборка не повторяет сбор
+JSON-метаданных при последующем построении `form_elements`.
 
 Автономная проверка оракула:
 
@@ -849,7 +856,7 @@ CF→JSON-дельты, фиксирует версии и хеши, прове�
 python3 -m rlm_tools_bsl.v8unpack_oracle form-manifest verify \
   tests/fixtures/v8unpack_oracle/forms-802.manifest.json
 python3 -m rlm_tools_bsl.v8unpack_oracle form-inventory \
-  --root <корень-v8unpack> --manifest \
+  --root <корень-v8unpack> --index <путь-к-bsl_index.db> --manifest \
   tests/fixtures/v8unpack_oracle/forms-802.manifest.json \
   --output .artifacts/v8unpack-form-inventory.json
 ./tools/v8unpack_form_probe/run.sh

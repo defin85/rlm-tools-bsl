@@ -27,6 +27,7 @@ from rlm_tools_bsl.bsl_knowledge import BSL_PATTERNS, _merge_proc_continuations
 from rlm_tools_bsl.cache import _paths_hash
 from rlm_tools_bsl.format_detector import BslFileInfo, SourceFormat, detect_format, parse_bsl_path
 from rlm_tools_bsl.v8unpack_metadata import (
+    V8UnpackMetadataResult,
     classify_v8unpack_json_path,
     collect_v8unpack_metadata,
     read_v8unpack_json,
@@ -4849,7 +4850,7 @@ def _refresh_v8unpack_metadata(
     *,
     build_metadata: bool,
     build_synonyms: bool,
-) -> object | None:
+) -> V8UnpackMetadataResult | None:
     """Atomically replace the v8unpack JSON layer without touching BSL rows."""
     current_format = detect_format(base_path).primary_format
     previous = conn.execute("SELECT value FROM index_meta WHERE key='source_format'").fetchone()
@@ -5845,6 +5846,7 @@ def _refresh_form_elements(
     base_path: str,
     *,
     build_metadata: bool,
+    metadata_result: V8UnpackMetadataResult | None = None,
 ) -> list[tuple]:
     """Atomically replace the format-specific form layer."""
     source_format = detect_format(base_path).primary_format
@@ -5876,7 +5878,7 @@ def _refresh_form_elements(
 
     _ensure_form_elements_schema(conn)
     if source_format is SourceFormat.V8UNPACK:
-        result = collect_v8unpack_forms(base_path)
+        result = collect_v8unpack_forms(base_path, metadata_result=metadata_result)
         rows = result.rows
         meta = result.index_meta()
     else:
@@ -6199,7 +6201,7 @@ class IndexBuilder:
             # modules/methods/calls would survive the now-unlink-free rebuild).
             self._begin_inplace_rebuild(conn, opts)
             config_meta = _parse_configuration_meta(base_path)
-            _refresh_v8unpack_metadata(
+            metadata_result = _refresh_v8unpack_metadata(
                 conn,
                 base_path,
                 build_metadata=build_metadata,
@@ -6209,6 +6211,7 @@ class IndexBuilder:
                 conn,
                 base_path,
                 build_metadata=build_metadata,
+                metadata_result=metadata_result,
             )
             fp_rows = _collect_file_paths(base_path)
             _insert_file_paths(conn, fp_rows)
@@ -6293,7 +6296,7 @@ class IndexBuilder:
         if build_metadata and not is_v8unpack:
             md_tables = _collect_metadata_tables(base_path)
             _insert_metadata_tables(conn, md_tables)
-        _refresh_v8unpack_metadata(
+        metadata_result = _refresh_v8unpack_metadata(
             conn,
             base_path,
             build_metadata=build_metadata,
@@ -6389,6 +6392,7 @@ class IndexBuilder:
             conn,
             base_path,
             build_metadata=build_metadata,
+            metadata_result=metadata_result,
         )
         logger.info("Form elements: %d entries", len(fe_rows))
 
@@ -6578,7 +6582,7 @@ class IndexBuilder:
         # layer on every update keeps git and non-git paths identical and atomic.
         previous_format = conn.execute("SELECT value FROM index_meta WHERE key='source_format'").fetchone()
         was_v8unpack = previous_format is not None and previous_format["value"] == SourceFormat.V8UNPACK.value
-        _refresh_v8unpack_metadata(
+        metadata_result = _refresh_v8unpack_metadata(
             conn,
             base_path,
             build_metadata=has_metadata,
@@ -7174,6 +7178,7 @@ class IndexBuilder:
             conn,
             base_path,
             build_metadata=has_metadata,
+            metadata_result=metadata_result,
         )
         logger.info("Form elements: %d entries", len(fe_rows))
 

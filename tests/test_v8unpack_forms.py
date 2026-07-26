@@ -14,6 +14,7 @@ from rlm_tools_bsl.v8unpack_forms import (
     _ordinary_event_name,
     collect_v8unpack_forms,
 )
+from rlm_tools_bsl.v8unpack_metadata import collect_v8unpack_metadata
 from rlm_tools_bsl.v8unpack_oracle import (
     _json_bytes,
     _sha256,
@@ -179,6 +180,20 @@ def test_managed_form_emits_proven_rows(tmp_path):
         "elements": "empty",
         "handlers": "complete",
     }
+
+
+def test_form_collector_reuses_existing_metadata_result(tmp_path, monkeypatch):
+    _root(tmp_path)
+    _ordinary_form(tmp_path)
+    metadata_result = collect_v8unpack_metadata(tmp_path)
+    monkeypatch.setattr(
+        "rlm_tools_bsl.v8unpack_forms.collect_v8unpack_metadata",
+        lambda _root: (_ for _ in ()).throw(AssertionError("duplicate metadata scan")),
+    )
+
+    result = collect_v8unpack_forms(tmp_path, metadata_result=metadata_result)
+
+    assert (result.total, result.indexed, result.failed) == (1, 1, 0)
 
 
 def test_ordinary_0_27_emits_proven_on_open_handler(tmp_path):
@@ -512,6 +527,43 @@ def test_malformed_proven_ordinary_handler_is_failed(tmp_path):
     assert result.status == "partial"
 
 
+@pytest.mark.parametrize("data", [[], {"Поле": []}])
+def test_malformed_required_element_data_fails_all_projections(tmp_path, data):
+    _root(tmp_path)
+    folder = _ordinary_form(tmp_path)
+    elements_path = folder / "DocumentForm.elem.json"
+    elements = json.loads(elements_path.read_text())
+    elements["data"] = data
+    _write(elements_path, elements)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert (result.total, result.indexed, result.failed, result.unsupported) == (1, 0, 1, 0)
+    assert result.rows == []
+    summary = json.loads(result.index_meta()["v8unpack_form_projections_json"])
+    for role in ("attributes", "commands", "elements", "handlers"):
+        assert summary["roles"][role] == {
+            "total": 1,
+            "complete": 0,
+            "empty": 0,
+            "unsupported": 0,
+            "failed": 1,
+        }
+
+
+def test_ordinary_page_lists_are_valid_element_data(tmp_path):
+    _root(tmp_path)
+    folder = _ordinary_form(tmp_path)
+    elements_path = folder / "DocumentForm.elem.json"
+    elements = json.loads(elements_path.read_text())
+    elements["data"]["-pages-"] = ["Страница1"]
+    _write(elements_path, elements)
+
+    result = collect_v8unpack_forms(tmp_path)
+
+    assert (result.indexed, result.failed) == (1, 0)
+
+
 def test_unknown_element_version_is_unsupported(tmp_path):
     _root(tmp_path)
     _form(
@@ -677,7 +729,7 @@ def test_refresh_failure_preserves_previous_layer(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(
         "rlm_tools_bsl.bsl_index.collect_v8unpack_forms",
-        lambda _path: (_ for _ in ()).throw(RuntimeError("boom")),
+        lambda _path, **_kwargs: (_ for _ in ()).throw(RuntimeError("boom")),
     )
 
     with pytest.raises(RuntimeError, match="boom"):
