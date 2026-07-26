@@ -559,4 +559,4 @@ class TestUpdateFilePaths:
 
 class TestVersionBump:
     def test_builder_version_is_current(self):
-        assert BUILDER_VERSION == 20
+        assert BUILDER_VERSION == 21

@@ -96,7 +96,7 @@ def _ordinary_form(
     tmp_path: Path,
     *,
     element_version: str = "0-27",
-    event: str = "ПриОткрытии",
+    raw_event: str = "70001",
     handler: str = "ОбычныйПриОткрытии",
 ) -> Path:
     _form(
@@ -114,9 +114,9 @@ def _ordinary_form(
     slot = 1 if element_version == "0-26" else 2
     form_payload = [None, None, None, None, [None] * (slot + 1)]
     form_payload[4][slot] = [
-        None,
-        None,
-        [None, f'"{event}"', [None, f'"{handler}"']],
+        raw_event,
+        "e1692cc2-605b-4535-84dd-28440238746c",
+        ["3", f'"{handler}"', ["1", f'"{handler}"']],
     ]
     main["form"] = [[form_payload]]
     _write(main_path, main)
@@ -169,7 +169,7 @@ def test_managed_form_emits_proven_rows(tmp_path):
     }
 
 
-def test_ordinary_0_27_emits_only_proven_on_open_handler(tmp_path):
+def test_ordinary_0_27_emits_proven_on_open_handler(tmp_path):
     _root(tmp_path)
     _ordinary_form(tmp_path)
 
@@ -185,31 +185,32 @@ def test_ordinary_0_27_emits_only_proven_on_open_handler(tmp_path):
         "attributes": "empty",
         "commands": "unsupported",
         "elements": "empty",
-        "handlers": "unsupported",
+        "handlers": "complete",
     }
     summary = json.loads(result.index_meta()["v8unpack_form_projections_json"])
     assert summary["total"] == 4
-    assert summary["unsupported"] == 2
+    assert summary["unsupported"] == 1
     assert result.status == "partial"
 
 
 @pytest.mark.parametrize("element_version", ["0-26", "0-5-1", "0-20-16", "0-23-16", "0-25-16"])
-def test_other_ordinary_versions_do_not_guess_handlers_or_commands(tmp_path, element_version):
+def test_other_ordinary_versions_decode_proven_handlers(tmp_path, element_version):
     _root(tmp_path)
     _ordinary_form(tmp_path, element_version=element_version)
 
     result = collect_v8unpack_forms(tmp_path)
 
-    assert not any(row[3] in {"handler", "command"} for row in result.rows)
+    assert not any(row[3] == "command" for row in result.rows)
+    assert any(row[3] == "handler" and row[7] == "OnOpen" for row in result.rows)
     marker = next(row for row in result.rows if row[3] == "form")
     projections = json.loads(marker[12])["projections"]
-    assert projections["handlers"] == "unsupported"
+    assert projections["handlers"] == "complete"
     assert projections["commands"] == "unsupported"
 
 
 def test_unknown_ordinary_event_is_not_guessed(tmp_path):
     _root(tmp_path)
-    _ordinary_form(tmp_path, event="БудущееСобытие")
+    _ordinary_form(tmp_path, raw_event="79999")
 
     result = collect_v8unpack_forms(tmp_path)
 
@@ -370,7 +371,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
         )
     assert delta["rebuild_reason"] == "schema upgrade v19->20"
     assert flags == {
-        "builder_version": "20",
+        "builder_version": "21",
         "has_calls": "0",
         "has_fts": "0",
         "has_synonyms": "0",

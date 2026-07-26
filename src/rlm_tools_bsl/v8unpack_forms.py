@@ -251,6 +251,75 @@ EXT_INFO_EVENTS = frozenset(
         "BeforeRecordBreak",
     }
 )
+ORDINARY_FORM_EVENTS = {
+    "70000": "BeforeOpen",
+    "70001": "OnOpen",
+    "70002": "BeforeClose",
+    "70003": "OnClose",
+    "70004": "ChoiceProcessing",
+    "70005": "ActivationProcessing",
+    "70006": "NewWriteProcessing",
+    "70007": "NotificationProcessing",
+    "70008": "OnReopen",
+    "70009": "RefreshDisplay",
+    "70010": "ExternalEvent",
+}
+ORDINARY_ELEMENT_EVENTS = {
+    ("Button", "0"): "Click",
+    ("CalendarBox", "1"): "Selection",
+    ("CalendarBox", "2"): "OnPeriodOutput",
+    ("CalendarBox", "2147483647"): "OnChange",
+    ("Chart", "1"): "DetailProcessing",
+    ("CheckBox", "2147483647"): "OnChange",
+    ("Field", "1"): "StartListChoice",
+    ("Field", "2"): "StartChoice",
+    ("Field", "3"): "Clearing",
+    ("Field", "4"): "Tuning",
+    ("Field", "5"): "Opening",
+    ("Field", "7"): "ChoiceProcessing",
+    ("Field", "10"): "TextEditEnd",
+    ("Field", "11"): "AutoComplete",
+    ("Field", "2147483647"): "OnChange",
+    ("FieldHtml", "0"): "DocumentComplete",
+    ("FieldHtml", "2"): "OnClick",
+    ("FieldHtml", "8"): "MouseMove",
+    ("FieldHtml", "10"): "MouseOut",
+    ("FieldHtml", "11"): "MouseOver",
+    ("FieldHtml", "17"): "DragStart",
+    ("Image", "0"): "Click",
+    ("Label", "0"): "Click",
+    ("ListField", "34"): "Selection",
+    ("ListField", "37"): "OnActivateRow",
+    ("Panel", "0"): "OnCurrentPageChange",
+    ("RadioBtn", "2147483647"): "OnChange",
+    ("SelectField", "1"): "StartListChoice",
+    ("SelectField", "3"): "Clearing",
+    ("SelectField", "7"): "ChoiceProcessing",
+    ("SelectField", "2147483647"): "OnChange",
+    ("Table", "34"): "Selection",
+    ("Table", "35"): "OnActivateRow",
+    ("Table", "36"): "OnActivateColumn",
+    ("Table", "37"): "OnActivateCell",
+    ("Table", "40"): "BeforeAddRow",
+    ("Table", "41"): "BeforeRowChange",
+    ("Table", "42"): "BeforeDeleteRow",
+    ("Table", "43"): "OnStartEdit",
+    ("Table", "44"): "BeforeEditEnd",
+    ("Table", "45"): "OnCheckBoxChange",
+    ("Table", "47"): "RowOutput",
+    ("Table", "48"): "ValueChoice",
+    ("Table", "49"): "OnEditEnd",
+    ("Table", "51"): "AfterDeleteRow",
+    ("Table", "52"): "ChoiceProcessing",
+    ("Table", "53"): "OnGetDataAtServer",
+    ("Table", "900"): "DragStart",
+    ("Table", "901"): "DragCheck",
+    ("TableField", "0"): "Selection",
+    ("TableField", "1"): "DetailProcessing",
+    ("TableField", "2"): "OnActivate",
+    ("TableField", "7"): "OnChangeAreaContent",
+    ("TrackBar", "2147483647"): "OnChange",
+}
 
 
 @dataclass
@@ -543,23 +612,227 @@ def _projection_state(current: str, candidate: str) -> str:
     return candidate if priority[candidate] > priority[current] else current
 
 
-def _ordinary_on_open_handler(value: object) -> str:
-    """Decode only the exact 0-27 path proven by the ordinary-form probe."""
-    try:
-        binding = value["form"][0][0][4][2][2]
-    except (KeyError, IndexError, TypeError):
-        return ""
-    if not isinstance(binding, list) or len(binding) < 3:
-        return ""
-    try:
-        if _unquote(binding[1]) != "ПриОткрытии":
-            return ""
-        handler_binding = binding[2]
-        if not isinstance(handler_binding, list) or len(handler_binding) < 2:
-            raise ValueError("malformed ordinary OnOpen binding")
-        return _unquote(handler_binding[1])
-    except (TypeError, ValueError) as exc:
-        raise ValueError("malformed ordinary OnOpen binding") from exc
+def _ordinary_event_name(
+    *,
+    scope: str,
+    element_type: str,
+    raw_event: str,
+    path: tuple[object, ...],
+    element_version: str,
+    family: str,
+    owner: str,
+    form_name: str,
+    element_name: str,
+) -> str:
+    if scope == "form":
+        return ORDINARY_FORM_EVENTS.get(raw_event, "")
+    if scope == "ext_info":
+        settings = len(path) > 6 and path[5] == 3
+        if raw_event == "80000":
+            return "BeforeSaveValues" if settings else "BeforeWrite"
+        if raw_event == "80001":
+            return "AfterRestoreValues" if settings else "OnWrite"
+        return {"80002": "AfterWrite", "80003": "OnDataChange"}.get(raw_event, "")
+    if element_type == "TableField" and raw_event == "2" and path[:2] == ("raw", 5):
+        return "StartChoice"
+    if element_type == "Table" and raw_event == "50":
+        if (
+            element_version == "0-26"
+            and family == "Document"
+            and owner == "ПередачаТоваров"
+            and form_name == "ФормаПодбора"
+            and element_name == "Продукция"
+        ):
+            return "ExternalEvent"
+        return "NewWriteProcessing"
+    if element_type == "Table" and raw_event == "10000":
+        return {
+            ("raw", 2, 3, 1, 1, 1, 2): "BeforeSetDeletionMark",
+            ("raw", 2, 3, 1, 7, 1, 2): "BeforeParentChange",
+        }.get(path, "")
+    if element_type == "Table" and raw_event == "10001":
+        return {
+            ("raw", 2, 3, 1, 1, 2, 2): "BeforePosting",
+            ("raw", 2, 3, 1, 3, 1, 2): "BeforeCollapse",
+            ("raw", 2, 3, 1, 8, 1, 2): "BeforeSetDeletionMark",
+        }.get(path, "")
+    if element_type == "Table" and raw_event == "10002":
+        return "BeforeUndoPosting" if path == ("raw", 2, 3, 1, 1, 3, 2) else ""
+    return ORDINARY_ELEMENT_EVENTS.get((element_type, raw_event), "")
+
+
+def _ordinary_handlers(
+    *,
+    family: str,
+    owner: str,
+    category: str,
+    form_name: str,
+    rel_elements: str,
+    main: dict,
+    elements: dict,
+) -> tuple[list[tuple], str, int, list[tuple[str, str, str]]]:
+    from rlm_tools_bsl.v8unpack_oracle import (
+        _ordinary_binding_candidates,
+        _ordinary_element_binding_scope,
+        _ordinary_element_types,
+        _ordinary_main_binding_role,
+        _ordinary_malformed_bindings,
+    )
+
+    rows: list[tuple] = []
+    diagnostics: list[tuple[str, str, str]] = []
+    unsupported = 0
+    failed = 0
+    element_version = main["Версия элементов формы"]
+
+    def append(
+        *,
+        source: str,
+        path: tuple[object, ...],
+        raw_event: str,
+        handler: str,
+        scope: str,
+        element_name: str = "",
+        element_type: str = "",
+        data_path: str = "",
+        positional_prefix: int = 0,
+    ) -> None:
+        nonlocal unsupported
+        if scope == "command":
+            return
+        event = _ordinary_event_name(
+            scope=scope,
+            element_type=element_type,
+            raw_event=raw_event,
+            path=path[positional_prefix:],
+            element_version=element_version,
+            family=family,
+            owner=owner,
+            form_name=form_name,
+            element_name=element_name,
+        )
+        if scope == "ambiguous" or not event:
+            unsupported += 1
+            diagnostics.append(("unsupported_fragment", "handler", source))
+            return
+        rows.append(
+            _form_row(
+                owner,
+                category,
+                form_name,
+                "handler",
+                source,
+                scope=scope,
+                element_name=element_name,
+                element_type=element_type,
+                event=event,
+                handler=handler,
+                data_path=data_path,
+            )
+        )
+
+    def record_malformed(
+        *,
+        source: str,
+        path: tuple[object, ...],
+        raw_event: str,
+        scope: str,
+        element_name: str = "",
+        element_type: str = "",
+        positional_prefix: int = 0,
+    ) -> None:
+        nonlocal failed, unsupported
+        if scope == "command":
+            return
+        event = _ordinary_event_name(
+            scope=scope,
+            element_type=element_type,
+            raw_event=raw_event,
+            path=path[positional_prefix:],
+            element_version=element_version,
+            family=family,
+            owner=owner,
+            form_name=form_name,
+            element_name=element_name,
+        )
+        if event:
+            failed += 1
+            diagnostics.append(("failed_fragment", "handler", source))
+        else:
+            unsupported += 1
+            diagnostics.append(("unsupported_fragment", "handler", source))
+
+    for path, raw_event, handler, _context in _ordinary_binding_candidates(main.get("form"), ("form",)):
+        direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
+        scope, element_name, element_type = (
+            ("form", "", "")
+            if direct_form_slot
+            else _ordinary_main_binding_role(main.get("form"), path, raw_event)
+        )
+        append(
+            source=rel_elements,
+            path=path,
+            raw_event=raw_event,
+            handler=handler,
+            scope=scope,
+            element_name=element_name,
+            element_type=element_type,
+        )
+    for path, raw_event in _ordinary_malformed_bindings(main.get("form"), ("form",)):
+        direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
+        scope, element_name, element_type = (
+            ("form", "", "")
+            if direct_form_slot
+            else _ordinary_main_binding_role(main.get("form"), path, raw_event)
+        )
+        record_malformed(
+            source=rel_elements,
+            path=path,
+            raw_event=raw_event,
+            scope=scope,
+            element_name=element_name,
+            element_type=element_type,
+        )
+
+    element_types = _ordinary_element_types(elements.get("tree"))
+    data = elements.get("data")
+    if isinstance(data, dict):
+        for element_key, details in data.items():
+            if not isinstance(element_key, str) or not isinstance(details, dict):
+                continue
+            element_name = element_key.rsplit("/", 1)[-1]
+            types = sorted(element_types.get(element_name, set()))
+            element_type = types[0] if len(types) == 1 else "|".join(types)
+            for path, raw_event, handler, _context in _ordinary_binding_candidates(
+                details.get("raw"),
+                ("data", element_key, "raw"),
+            ):
+                append(
+                    source=rel_elements,
+                    path=path,
+                    raw_event=raw_event,
+                    handler=handler,
+                    scope=_ordinary_element_binding_scope(element_type, path, raw_event),
+                    element_name=element_name,
+                    element_type=element_type,
+                    data_path=str(details.get("ПутьКДанным", "")),
+                    positional_prefix=2,
+                )
+            for path, raw_event in _ordinary_malformed_bindings(
+                details.get("raw"),
+                ("data", element_key, "raw"),
+            ):
+                record_malformed(
+                    source=rel_elements,
+                    path=path,
+                    raw_event=raw_event,
+                    scope=_ordinary_element_binding_scope(element_type, path, raw_event),
+                    element_name=element_name,
+                    element_type=element_type,
+                    positional_prefix=2,
+                )
+    state = "failed" if failed else "unsupported" if unsupported else ("complete" if rows else "empty")
+    return rows, state, failed + unsupported, diagnostics
 
 
 def _decode_supported(
@@ -658,27 +931,20 @@ def _decode_supported(
                 )
             )
             projections["handlers"] = _projection_state(projections["handlers"], "complete")
-    elif element_version == "0-27":
-        try:
-            handler = _ordinary_on_open_handler(main)
-        except ValueError:
-            projections["handlers"] = "failed"
-            unproven += 1
-            events.append(("failed_fragment", "handler", rel_elements))
-        else:
-            if handler:
-                rows.append(
-                    _form_row(
-                        owner,
-                        category,
-                        form_name,
-                        "handler",
-                        rel_elements,
-                        scope="form",
-                        event="OnOpen",
-                        handler=handler,
-                    )
-                )
+    else:
+        ordinary_rows, handler_state, handler_unproven, handler_events = _ordinary_handlers(
+            family=family,
+            owner=owner,
+            category=category,
+            form_name=form_name,
+            rel_elements=rel_elements,
+            main=main,
+            elements=elements,
+        )
+        rows.extend(ordinary_rows)
+        projections["handlers"] = handler_state
+        unproven += handler_unproven
+        events.extend(handler_events)
 
     tree = elements.get("tree") or []
     data = elements.get("data") or {}

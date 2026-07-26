@@ -799,25 +799,27 @@ def verify_form_manifest(path: str | Path) -> dict:
     roles = inventory_projections.get("roles", {})
     expected_ordinary_candidates = {
         "0-20-16": {
-            "ambiguous": {"total": 6, "procedure_exists": 6, "procedure_missing": 0},
+            "element": {"total": 4, "procedure_exists": 4, "procedure_missing": 0},
             "form": {"total": 4, "procedure_exists": 4, "procedure_missing": 0},
         },
         "0-23-16": {
-            "ambiguous": {"total": 35, "procedure_exists": 35, "procedure_missing": 0},
+            "element": {"total": 12, "procedure_exists": 12, "procedure_missing": 0},
+            "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
             "form": {"total": 9, "procedure_exists": 9, "procedure_missing": 0},
         },
         "0-25-16": {
-            "ambiguous": {"total": 32, "procedure_exists": 32, "procedure_missing": 0},
+            "element": {"total": 13, "procedure_exists": 13, "procedure_missing": 0},
+            "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
             "form": {"total": 23, "procedure_exists": 23, "procedure_missing": 0},
         },
         "0-26": {
-            "ambiguous": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
             "element": {"total": 1212, "procedure_exists": 1212, "procedure_missing": 0},
+            "ext_info": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
             "form": {"total": 1061, "procedure_exists": 1061, "procedure_missing": 0},
         },
         "0-27": {
-            "ambiguous": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
-            "element": {"total": 40728, "procedure_exists": 40716, "procedure_missing": 12},
+            "element": {"total": 40706, "procedure_exists": 40694, "procedure_missing": 12},
+            "ext_info": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
             "form": {"total": 9836, "procedure_exists": 9818, "procedure_missing": 18},
         },
     }
@@ -827,10 +829,10 @@ def verify_form_manifest(path: str | Path) -> dict:
         or inventory.get("local_versions") != coverage.get("local_versions")
         or inventory.get("element_versions") != coverage.get("element_versions")
         or inventory.get("ordinary_candidates") != expected_ordinary_candidates
-        or inventory.get("ordinary_command_candidates") != 22667
-        or inventory.get("structural_classes") != 576
+        or inventory.get("ordinary_command_candidates") != 22733
+        or inventory.get("structural_classes") != 544
         or inventory.get("structural_classes_sha256")
-        != "b9aec4c75ccda2530312f52241602b3f1ed4da6187aa4a29bb31c347efe31c29"
+        != "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68"
         or not isinstance(inventory.get("rows_sha256"), str)
         or len(inventory["rows_sha256"]) != 64
         or set(roles) != {"handlers", "commands", "attributes", "elements"}
@@ -858,13 +860,25 @@ def verify_form_manifest(path: str | Path) -> dict:
         "proof": "controlled_delta_and_runtime",
     }
     unsupported = manifest.get("unsupported_projections", {})
+    registry = manifest.get("ordinary_handler_registry", {})
     if (
         manifest.get("handler_contracts") != [expected_contract]
+        or registry
+        != {
+            "snapshot": "v8unpack-1.2.9/802",
+            "structural_classes": 544,
+            "handlers": 53328,
+            "canonical_events": 58,
+            "structural_classes_sha256": "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68",
+            "rows_sha256": "53e8d4975a6b9120327dd606f5fcf2743ad7d74b79adbdfec9bd06764a2d1149",
+            "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
+            "proof_matrix_sha256": "6ab68f2f6f7b245a2491e54dbf454624dd5bb4fbc409aaaf92d5df9301c42094",
+            "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime",
+        }
         or unsupported.get("commands", {}).get("element_versions")
         != ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26", "0-27"]
-        or unsupported.get("handlers", {}).get("element_versions") != ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26"]
-        or unsupported.get("handlers", {}).get("ordinary_element_handlers") is not True
-        or unsupported.get("handlers", {}).get("unknown_events") is not True
+        or unsupported.get("handlers")
+        != {"snapshot_unsupported": 0, "unknown_descriptors": True}
     ):
         raise ValueError("invalid ordinary form contract registry")
     probe = manifest.get("ordinary_probe", {})
@@ -917,6 +931,9 @@ def _binding_context(parent: list, index: int) -> dict[str, object]:
     }
 
 
+_ORDINARY_EVENT_MARKER_UUID = "e1692cc2-605b-4535-84dd-28440238746c"
+
+
 def _ordinary_binding_candidates(
     value: object,
     path: tuple[object, ...] = (),
@@ -933,17 +950,21 @@ def _ordinary_binding_candidates(
             and isinstance(value[2], list)
             and len(value[2]) >= 2
             and value[2][0] == "1"
-            and (handler := _quoted(value[2][1]))
-            and handler == outer_handler
+            and isinstance(value[2][1], str)
+            and len(value[2][1]) >= 2
+            and value[2][1][0] == '"'
+            and value[2][1][-1] == '"'
         ):
             raw_event = (
                 str(parent[0])
                 if parent
                 and parent_index >= 2
+                and len(parent) >= 2
+                and parent[1] == _ORDINARY_EVENT_MARKER_UUID
                 and isinstance(parent[0], (str, int))
                 else ""
             )
-            yield path, raw_event, handler, _binding_context(parent or [], parent_index)
+            yield path, raw_event, outer_handler, _binding_context(parent or [], parent_index)
             return
         for index, item in enumerate(value):
             yield from _ordinary_binding_candidates(
@@ -955,6 +976,44 @@ def _ordinary_binding_candidates(
     elif isinstance(value, dict):
         for key, item in value.items():
             yield from _ordinary_binding_candidates(item, path + (key,))
+
+
+def _ordinary_malformed_bindings(
+    value: object,
+    path: tuple[object, ...] = (),
+):
+    if isinstance(value, list):
+        if (
+            len(value) >= 2
+            and isinstance(value[0], (str, int))
+            and str(value[0]).isdigit()
+            and value[1] == _ORDINARY_EVENT_MARKER_UUID
+        ):
+            binding = value[2] if len(value) > 2 else None
+            valid = (
+                isinstance(binding, list)
+                and len(binding) >= 3
+                and binding[0] == "3"
+                and isinstance(binding[1], str)
+                and len(binding[1]) >= 2
+                and binding[1][0] == '"'
+                and binding[1][-1] == '"'
+                and isinstance(binding[2], list)
+                and len(binding[2]) >= 2
+                and binding[2][0] == "1"
+                and isinstance(binding[2][1], str)
+                and len(binding[2][1]) >= 2
+                and binding[2][1][0] == '"'
+                and binding[2][1][-1] == '"'
+            )
+            if not valid:
+                yield path + (2,), str(value[0])
+            return
+        for index, item in enumerate(value):
+            yield from _ordinary_malformed_bindings(item, path + (index,))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from _ordinary_malformed_bindings(item, path + (key,))
 
 
 def _ordinary_element_types(tree: object) -> dict[str, set[str]]:
@@ -973,6 +1032,68 @@ def _ordinary_element_types(tree: object) -> dict[str, set[str]]:
             if isinstance(children, list):
                 stack.extend(children)
     return result
+
+
+_ORDINARY_OLD_ELEMENT_TYPES = {
+    ("19f8b798-314e-4b4e-8121-905b2a7a03f5", (2, 2, 1, 2)): "ListField",
+    ("236a17b3-7f44-46d9-a907-75f9cdc61ab5", (2, 17, 1, 2)): "TableField",
+    ("381ed624-9217-4e63-85db-c4c3cb87daae", (2, 4, 1, 2)): "Field",
+    ("d92a805c-98ae-4750-9158-d9ce7cec2f20", (2, 2, 1, 2)): "FieldHtml",
+    ("ea83fe3a-ac3c-4cce-8045-3dddf35b28b1", (2, 4, 1, 2)): "Table",
+    ("ea83fe3a-ac3c-4cce-8045-3dddf35b28b1", (2, 4, 2, 2)): "Table",
+}
+_ORDINARY_COMMAND_BAR_UUID = "e69bf21d-97b2-4f37-86db-675aea9ec2cb"
+
+
+def _ordinary_main_binding_role(
+    form: object,
+    path: tuple[object, ...],
+    raw_event: str,
+) -> tuple[str, str, str]:
+    """Classify a legacy binding by its exact section and owning element node."""
+    relative = path[1:]
+    if relative[:3] == (0, 0, 3):
+        return "ext_info", "", ""
+    try:
+        if relative[:5] != (0, 0, 1, 2, 2):
+            raise ValueError
+        node = form[0][0][1][2][2][relative[5]]  # type: ignore[index]
+        tail = relative[6:]
+        if (
+            node[0] == _ORDINARY_COMMAND_BAR_UUID
+            and len(tail) == 5
+            and tail[:3] == (2, 1, 7)
+            and isinstance(tail[3], int)
+            and tail[4] == 4
+        ):
+            return "command", "", ""
+        element_type = _ORDINARY_OLD_ELEMENT_TYPES[(node[0], tail)]
+        marker = node[4]
+        if not isinstance(marker, list) or len(marker) < 2 or marker[0] != "14":
+            raise ValueError
+        element_name = _quoted(marker[1])
+        if not element_name:
+            raise ValueError
+    except (IndexError, KeyError, TypeError, ValueError):
+        return "ambiguous", "", ""
+    return "element", element_name, element_type
+
+
+def _ordinary_element_binding_scope(
+    element_type: str,
+    path: tuple[object, ...],
+    raw_event: str,
+) -> str:
+    relative = path[2:]
+    if (
+        element_type == "Button"
+        and len(relative) == 6
+        and relative[:4] == ("raw", 2, 1, 12)
+        and isinstance(relative[4], int)
+        and relative[5] == 4
+    ):
+        return "command"
+    return "command" if element_type == "CommandPanel" else "element"
 
 
 def _module_procedures(path: Path) -> set[str]:
@@ -1090,13 +1211,20 @@ def build_form_inventory(
                 and path[:4] == ("form", 0, 0, 4)
                 and path[-1] == 2
             )
+            scope, element_name, element_type = (
+                ("form", "", "")
+                if direct_form_slot
+                else _ordinary_main_binding_role(main.get("form"), path, raw_event)
+            )
             append_candidate(
                 source_path=rel_main,
                 path=path,
                 raw_event=raw_event,
                 handler=handler,
                 neighbor_context=context,
-                scope="form" if direct_form_slot else "ambiguous",
+                scope=scope,
+                element_name=element_name,
+                element_type=element_type,
             )
 
         element_types = _ordinary_element_types(elements.get("tree"))
@@ -1108,7 +1236,6 @@ def build_form_inventory(
                 element_name = element_key.rsplit("/", 1)[-1]
                 types = sorted(element_types.get(element_name, set()))
                 element_type = types[0] if len(types) == 1 else "|".join(types)
-                scope = "command" if element_type == "CommandPanel" else "element"
                 for path, raw_event, handler, context in _ordinary_binding_candidates(
                     details.get("raw"),
                     ("data", element_key, "raw"),
@@ -1119,7 +1246,7 @@ def build_form_inventory(
                         raw_event=raw_event,
                         handler=handler,
                         neighbor_context=context,
-                        scope=scope,
+                        scope=_ordinary_element_binding_scope(element_type, path, raw_event),
                         element_name=element_name,
                         element_type=element_type,
                         data_path=str(details.get("ПутьКДанным", "")),
@@ -1132,7 +1259,7 @@ def build_form_inventory(
     ordinary_candidates = {}
     for version in sorted({key[0] for key in candidate_counts}):
         scopes = {}
-        for scope in ("form", "element", "ambiguous"):
+        for scope in ("form", "ext_info", "element", "ambiguous"):
             total = candidate_counts[(version, scope)]
             if not total:
                 continue

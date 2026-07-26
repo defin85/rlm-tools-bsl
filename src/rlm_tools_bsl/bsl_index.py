@@ -41,7 +41,7 @@ from rlm_tools_bsl.bsl_xml_parsers import (
 
 logger = logging.getLogger(__name__)
 
-BUILDER_VERSION = 20
+BUILDER_VERSION = 21
 
 
 _active_locks: dict[str, "_BuildLock"] = {}

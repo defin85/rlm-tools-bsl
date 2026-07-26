@@ -633,7 +633,7 @@ class TestHelpers:
         info = bsl["get_index_info"]()
         reader.close()
         assert info["status"] == "ok"
-        assert info["builder_version"] == 20
+        assert info["builder_version"] == 21
         assert info["has_synonyms"] is True
 
     def test_get_index_info_no_index(self):

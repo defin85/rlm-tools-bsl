@@ -9,14 +9,19 @@ onec_dir="${ONEC_BIN_DIR:-/opt/1cv8/x86_64/8.3.27.1989}"
 ibcmd="${IBCMD:-$onec_dir/ibcmd}"
 onec_client="${ONEC_CLIENT:-$onec_dir/1cv8}"
 v8unpack="${V8UNPACK:-$repo_root/.artifacts/v8unpack-oracle-802/v8unpack-1.2.9-venv/bin/v8unpack}"
+live_root="${RLM_FORM_PROBE_SOURCE_ROOT:-/run/media/egor/D6B64A72B64A52E3/Projects/OneC/tn-logistic/tn-bp30-sdd/src/cf/tn_bp20_custom_mcp}"
 form_name="ПробнаяФорма"
 
-for command in "$ibcmd" "$onec_client" "$v8unpack" xpra Xvfb xdpyinfo jq base64 python3 timeout; do
+for command in "$ibcmd" "$onec_client" "$v8unpack" xpra Xvfb xdpyinfo jq base64 python3 timeout uv; do
 	if ! command -v "$command" >/dev/null 2>&1 && [ ! -x "$command" ]; then
 		printf 'Не найдена команда: %s\n' "$command" >&2
 		exit 1
 	fi
 done
+if [ ! -d "$live_root" ]; then
+	printf 'Не найден корень снимка форм: %s\n' "$live_root" >&2
+	exit 1
+fi
 
 mkdir -p "$artifact_root"
 run_root="$(mktemp -d "$artifact_root/run.XXXXXX")"
@@ -160,6 +165,21 @@ jq -e --argjson expected "$event_json" \
 	'length == 1 and .[0] == $expected' \
 	--slurp "$run_root/events.jsonl" >/dev/null
 
+uv run --project "$repo_root" python -m rlm_tools_bsl.v8unpack_oracle \
+	form-inventory \
+	--root "$live_root" \
+	--output "$run_root/inventory.json"
+python3 "$tool_dir/matrix.py" \
+	--inventory "$run_root/inventory.json" \
+	--source-root "$live_root" \
+	--skeleton-root "$json_dir" \
+	--output "$run_root/matrix" \
+	--v8unpack "$v8unpack" \
+	--ibcmd "$ibcmd" \
+	>"$run_root/matrix.out"
+jq -e '.classes == 544 and .success == 544 and .failed == 0' \
+	"$run_root/matrix/matrix.json" >/dev/null
+
 jq -n \
 	--arg status success \
 	--arg run_root "$run_root" \
@@ -180,6 +200,8 @@ jq -n \
 	--arg data_path_roundtrip_cf_sha256 "$(sha256sum "$run_root/data-path-roundtrip.cf" | cut -d' ' -f1)" \
 	--arg managed_parity_sha256 "$(sha256sum "$run_root/managed-parity.json" | cut -d' ' -f1)" \
 	--arg runtime_events_sha256 "$(sha256sum "$run_root/events.jsonl" | cut -d' ' -f1)" \
+	--arg inventory_sha256 "$(sha256sum "$run_root/inventory.json" | cut -d' ' -f1)" \
+	--arg matrix_sha256 "$(sha256sum "$run_root/matrix/matrix.json" | cut -d' ' -f1)" \
 	--slurpfile handler_paths "$handler_paths" \
 	--slurpfile runtime_events "$run_root/events.jsonl" \
 	'{
@@ -193,8 +215,10 @@ jq -n \
 		handler_contract: {
 			form_type: "0",
 			element_version: "0-27",
-			event_pointer: "/form/0/0/4/2/2/1",
-			handler_pointer: "/form/0/0/4/2/2/2/1",
+			raw_event: "70001",
+			raw_event_pointer: "/form/0/0/4/2/0",
+			handler_pointer: "/form/0/0/4/2/2/1",
+			handler_mirror_pointer: "/form/0/0/4/2/2/2/1",
 			canonical_event: $canonical_event,
 			scope: "form",
 			element_name: "",
@@ -226,7 +250,9 @@ jq -n \
 			data_path_cf: $data_path_cf_sha256,
 			data_path_roundtrip_cf: $data_path_roundtrip_cf_sha256,
 			managed_parity: $managed_parity_sha256,
-			runtime_events: $runtime_events_sha256
+			runtime_events: $runtime_events_sha256,
+			inventory: $inventory_sha256,
+			matrix: $matrix_sha256
 		}
 	}' >"$run_root/result.json"
 

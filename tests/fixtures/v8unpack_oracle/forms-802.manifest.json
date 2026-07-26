@@ -1,6 +1,6 @@
 {
   "schema": "v8unpack_forms_802_v2",
-  "content_sha256": "1041a4f616c759554e7749aa1ec307ee52c45bec864826963a73633f78471aa4",
+  "content_sha256": "721a8956384d433cdda99ad7aa3f9878a7a78da3508a7603531a0c961d810139",
   "platform_version": "8.3.27.1989",
   "v8unpack_version": "1.2.9",
   "root_object_version": "802",
@@ -13,7 +13,8 @@
     "paired_json_tree": "1320b454e77c0f38bc49646c7e4da9607d277326874f199a52dc3497a1e845bd",
     "paired_xml_tree": "fdb1dec3253610a8ab734f623f937a70e654c6ab9232d0231d6a8553e2b5549a",
     "probe_fixture_tree": "f43c2ba96f1da054d82102ebab5041eb3976cf3d7606d080783c6373c36ef130",
-    "probe_script": "e4ea8601446182250b95496c00a482563757cbdccabe2d64da93a1bc3afaf681",
+    "probe_script": "aba9c5e0bfeb98a21e4bfb85c5b15786526b6209431aaa3b4c4d048198ac2e66",
+    "probe_matrix": "971c1a5511303bf40a2b0d287f33632874061dbcd6126e48f9f4b8a4b86413f4",
     "probe_verifier": "142d5d2ad23e7220a0ba68d7ee0b28e22d0f427ff49809c49810601ea32beee1",
     "probe_base_cf": "72763bed107d75fb77effc884c7c41f16c8bb2b1ad50885996b832a05494d825",
     "probe_changed_cf": "475a37bd26b076f0a206f72039bf4182f5f60baa2b768921f9d5cf520268185f",
@@ -124,45 +125,58 @@
     },
     "ordinary_candidates": {
       "0-20-16": {
-        "ambiguous": {"total": 6, "procedure_exists": 6, "procedure_missing": 0},
+        "element": {"total": 4, "procedure_exists": 4, "procedure_missing": 0},
         "form": {"total": 4, "procedure_exists": 4, "procedure_missing": 0}
       },
       "0-23-16": {
-        "ambiguous": {"total": 35, "procedure_exists": 35, "procedure_missing": 0},
+        "element": {"total": 12, "procedure_exists": 12, "procedure_missing": 0},
+        "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
         "form": {"total": 9, "procedure_exists": 9, "procedure_missing": 0}
       },
       "0-25-16": {
-        "ambiguous": {"total": 32, "procedure_exists": 32, "procedure_missing": 0},
+        "element": {"total": 13, "procedure_exists": 13, "procedure_missing": 0},
+        "ext_info": {"total": 1, "procedure_exists": 1, "procedure_missing": 0},
         "form": {"total": 23, "procedure_exists": 23, "procedure_missing": 0}
       },
       "0-26": {
-        "ambiguous": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
         "element": {"total": 1212, "procedure_exists": 1212, "procedure_missing": 0},
+        "ext_info": {"total": 36, "procedure_exists": 36, "procedure_missing": 0},
         "form": {"total": 1061, "procedure_exists": 1061, "procedure_missing": 0}
       },
       "0-27": {
-        "ambiguous": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
-        "element": {"total": 40728, "procedure_exists": 40716, "procedure_missing": 12},
+        "element": {"total": 40706, "procedure_exists": 40694, "procedure_missing": 12},
+        "ext_info": {"total": 410, "procedure_exists": 408, "procedure_missing": 2},
         "form": {"total": 9836, "procedure_exists": 9818, "procedure_missing": 18}
       }
     },
-    "ordinary_command_candidates": 22667,
-    "structural_classes": 576,
-    "structural_classes_sha256": "b9aec4c75ccda2530312f52241602b3f1ed4da6187aa4a29bb31c347efe31c29",
-    "rows_sha256": "c78b077c1ab5db4de59e4a8415c417300a54346fed6813a13d65efe5258b4843",
+    "ordinary_command_candidates": 22733,
+    "structural_classes": 544,
+    "structural_classes_sha256": "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68",
+    "rows_sha256": "53e8d4975a6b9120327dd606f5fcf2743ad7d74b79adbdfec9bd06764a2d1149",
     "projections": {
       "total": 16148,
-      "complete": 8240,
-      "empty": 428,
-      "unsupported": 7480,
+      "complete": 11670,
+      "empty": 738,
+      "unsupported": 3740,
       "failed": 0,
       "roles": {
-        "handlers": {"total": 4037, "complete": 269, "empty": 28, "unsupported": 3740, "failed": 0},
+        "handlers": {"total": 4037, "complete": 3699, "empty": 338, "unsupported": 0, "failed": 0},
         "commands": {"total": 4037, "complete": 225, "empty": 72, "unsupported": 3740, "failed": 0},
         "attributes": {"total": 4037, "complete": 3903, "empty": 134, "unsupported": 0, "failed": 0},
         "elements": {"total": 4037, "complete": 3843, "empty": 194, "unsupported": 0, "failed": 0}
       }
     }
+  },
+  "ordinary_handler_registry": {
+    "snapshot": "v8unpack-1.2.9/802",
+    "structural_classes": 544,
+    "handlers": 53328,
+    "canonical_events": 58,
+    "structural_classes_sha256": "9b190a6e7aed2ebe6e85d94db2cbc43ca70ee03a3247251a0201670c9ca6cf68",
+    "rows_sha256": "53e8d4975a6b9120327dd606f5fcf2743ad7d74b79adbdfec9bd06764a2d1149",
+    "canonical_events_sha256": "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c",
+    "proof_matrix_sha256": "6ab68f2f6f7b245a2491e54dbf454624dd5bb4fbc409aaaf92d5df9301c42094",
+    "proof": "controlled_delta_closed_descriptor_source_consensus_and_automatable_runtime"
   },
   "handler_contracts": [
     {
@@ -170,8 +184,10 @@
       "element_version": "0-27",
       "event": "ПриОткрытии",
       "canonical_event": "OnOpen",
-      "event_pointer": "/form/0/0/4/2/2/1",
-      "handler_pointer": "/form/0/0/4/2/2/2/1",
+      "raw_event": "70001",
+      "raw_event_pointer": "/form/0/0/4/2/0",
+      "handler_pointer": "/form/0/0/4/2/2/1",
+      "handler_mirror_pointer": "/form/0/0/4/2/2/2/1",
       "scope": "form",
       "element_name": "",
       "element_type": "",
@@ -185,9 +201,8 @@
       "reason": "no controlled raw Form.json command delta"
     },
     "handlers": {
-      "element_versions": ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26"],
-      "ordinary_element_handlers": true,
-      "unknown_events": true
+      "snapshot_unsupported": 0,
+      "unknown_descriptors": true
     }
   },
   "ordinary_probe": {
@@ -207,8 +222,10 @@
     "handler_contract": {
       "form_type": "0",
       "element_version": "0-27",
-      "event_pointer": "/form/0/0/4/2/2/1",
-      "handler_pointer": "/form/0/0/4/2/2/2/1",
+      "raw_event": "70001",
+      "raw_event_pointer": "/form/0/0/4/2/0",
+      "handler_pointer": "/form/0/0/4/2/2/1",
+      "handler_mirror_pointer": "/form/0/0/4/2/2/2/1",
       "canonical_event": "OnOpen",
       "scope": "form",
       "element_name": "",

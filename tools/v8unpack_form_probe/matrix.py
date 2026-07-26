@@ -74,6 +74,13 @@ def run(command: list[str]) -> None:
         raise RuntimeError(f"{' '.join(command)}\n{result.stdout}")
 
 
+def output(command: list[str]) -> str:
+    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if result.returncode:
+        raise RuntimeError(f"{' '.join(command)}\n{result.stdout}")
+    return result.stdout.strip()
+
+
 def class_key(row: dict) -> tuple[str, ...]:
     return (
         row["local_version"],
@@ -210,6 +217,8 @@ def build_probe_class(
         "sha256": {
             "base_cf": sha256(base_cf),
             "changed_cf": sha256(changed_cf),
+            "base_json": sha256(base_roundtrip / relative_source),
+            "changed_json": sha256(changed_roundtrip / relative_source),
             "delta": sha256(delta_path),
         },
     }
@@ -312,6 +321,11 @@ def build_matrix(
         results.append(result)
     report = {
         "schema": "v8unpack_ordinary_form_probe_matrix_v1",
+        "platform_version": output([str(ibcmd), "--version"]).splitlines()[-1],
+        "v8unpack_version": output([str(v8unpack), "--help"]).splitlines()[0],
+        "inventory_sha256": sha256(inventory_path),
+        "structural_classes_sha256": inventory.get("structural_classes_sha256", ""),
+        "rows_sha256": inventory.get("rows_sha256", ""),
         "classes": len(results),
         "success": sum(result["status"] == "success" for result in results),
         "failed": sum(result["status"] == "failed" for result in results),

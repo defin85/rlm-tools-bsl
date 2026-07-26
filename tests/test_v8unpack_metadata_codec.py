@@ -30,6 +30,8 @@ from rlm_tools_bsl.v8unpack_oracle import (
     _json_bytes,
     _json_pointer,
     _ordinary_binding_candidates,
+    _ordinary_element_binding_scope,
+    _ordinary_main_binding_role,
     _sha256,
     _verify_manifest,
     projection_summary,
@@ -67,12 +69,63 @@ def test_ordinary_binding_inventory_keeps_outer_record_and_context():
     assert _json_pointer(("data", "Страница/Поле", "raw", 2)) == "/data/Страница~1Поле/raw/2"
 
 
-def test_ordinary_binding_inventory_rejects_unpaired_strings():
-    assert list(
+def test_ordinary_binding_inventory_uses_outer_handler_name():
+    rows = list(
         _ordinary_binding_candidates(
-            ["3", '"ПохожееИмя"', ["1", '"ДругойОбработчик"']]
+            ["3", '"Обработчик"', ["1", '"Представление"']]
         )
-    ) == []
+    )
+    assert rows[0][2] == "Обработчик"
+
+
+def test_ordinary_main_binding_roles():
+    element = [
+        "ea83fe3a-ac3c-4cce-8045-3dddf35b28b1",
+        "3",
+        ["raw"],
+        ["layout"],
+        ["14", '"Таблица"', "0"],
+        ["0"],
+    ]
+    form = [[[None, [None, None, [None, None, [element]]]]]]
+
+    assert _ordinary_main_binding_role(form, ("form", 0, 0, 3, 2), "80002") == (
+        "ext_info",
+        "",
+        "",
+    )
+    assert _ordinary_main_binding_role(
+        [[[None, [None, None, [None, None, [[
+            "e69bf21d-97b2-4f37-86db-675aea9ec2cb",
+            "3",
+        ]]]]]]],
+        ("form", 0, 0, 1, 2, 2, 0, 2, 1, 7, 5, 4),
+        "6",
+    ) == ("command", "", "")
+    assert _ordinary_main_binding_role(
+        form,
+        ("form", 0, 0, 1, 2, 2, 0, 2, 4, 1, 2),
+        "34",
+    ) == ("element", "Таблица", "Table")
+
+
+def test_ordinary_element_binding_scope_excludes_nested_button_actions():
+    assert (
+        _ordinary_element_binding_scope(
+            "Button",
+            ("data", "Кнопка", "raw", 2, 1, 12, 5, 4),
+            "7",
+        )
+        == "command"
+    )
+    assert (
+        _ordinary_element_binding_scope(
+            "Field",
+            ("data", "Поле", "raw", 2, 4, 1, 2),
+            "7",
+        )
+        == "element"
+    )
 
 
 def _write(path: Path, value: object) -> None:
