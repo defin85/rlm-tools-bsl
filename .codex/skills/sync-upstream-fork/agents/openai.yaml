@@ -1,0 +1,4 @@
+interface:
+  display_name: "Синхронизация с upstream"
+  short_description: "Безопасное слияние upstream в ответвление"
+  default_prompt: "Используй $sync-upstream-fork, чтобы безопасно перенести свежие изменения upstream в наше ответвление."
