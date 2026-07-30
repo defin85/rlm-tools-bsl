@@ -10058,9 +10058,7 @@ def make_bsl_helpers(
             "v8unpack_metadata_facet_unsupported": stats.get("v8unpack_metadata_facet_unsupported"),
             "v8unpack_metadata_facets_json": stats.get("v8unpack_metadata_facets_json"),
             "v8unpack_metadata_unsupported_count": stats.get("v8unpack_metadata_unsupported_count"),
-            "v8unpack_metadata_diagnostic_groups_total": stats.get(
-                "v8unpack_metadata_diagnostic_groups_total"
-            ),
+            "v8unpack_metadata_diagnostic_groups_total": stats.get("v8unpack_metadata_diagnostic_groups_total"),
             "v8unpack_metadata_diagnostics_json": stats.get("v8unpack_metadata_diagnostics_json"),
             "v8unpack_metadata_snapshot_json": stats.get("v8unpack_metadata_snapshot_json"),
             # v19 v8unpack JSON form projection completeness
@@ -10069,15 +10067,9 @@ def make_bsl_helpers(
             "v8unpack_form_indexed": stats.get("v8unpack_form_indexed"),
             "v8unpack_form_failed": stats.get("v8unpack_form_failed"),
             "v8unpack_form_unsupported": stats.get("v8unpack_form_unsupported"),
-            "v8unpack_form_unproven_fragments": stats.get(
-                "v8unpack_form_unproven_fragments"
-            ),
-            "v8unpack_form_diagnostics_json": stats.get(
-                "v8unpack_form_diagnostics_json"
-            ),
-            "v8unpack_form_projections_json": stats.get(
-                "v8unpack_form_projections_json"
-            ),
+            "v8unpack_form_unproven_fragments": stats.get("v8unpack_form_unproven_fragments"),
+            "v8unpack_form_diagnostics_json": stats.get("v8unpack_form_diagnostics_json"),
+            "v8unpack_form_projections_json": stats.get("v8unpack_form_projections_json"),
             "metadata_objects_count": stats.get("metadata_objects", 0),
             "metadata_type_ids_count": stats.get("metadata_type_ids", 0),
             # Git fast-path acceleration availability for incremental update (v1.8.0+)

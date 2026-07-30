@@ -437,10 +437,10 @@ def _verify_manifest(path: str | Path) -> dict:
             elif actual != ("blocked", "Unknown", None, False):
                 raise ValueError("unknown facet is not blocked")
             if supported and contract != (
-                    row.get("classification"),
-                    row.get("semantic"),
-                    row.get("projection"),
-                    True,
+                row.get("classification"),
+                row.get("semantic"),
+                row.get("projection"),
+                True,
             ):
                 raise ValueError("facet support lacks paired coverage")
             if classification in {"informational", "blocked"} and supported:
@@ -467,10 +467,7 @@ def _verify_manifest(path: str | Path) -> dict:
         facet_role = (
             code in {"unsupported_header_facet", "supported_header_facet"}
             and isinstance(role, str)
-            and (
-                _is_uuid(role)
-                or any(role == key[2] for key in V8UNPACK_FACET_CONTRACT_802)
-            )
+            and (_is_uuid(role) or any(role == key[2] for key in V8UNPACK_FACET_CONTRACT_802))
         )
         if roles is None or (role not in roles and not facet_role):
             raise ValueError("invalid diagnostic code or role")
@@ -491,9 +488,7 @@ def _verify_manifest(path: str | Path) -> dict:
         ):
             raise ValueError("invalid diagnostic examples")
     visible_unsupported = sum(
-        diagnostic.get("count", 0)
-        for diagnostic in diagnostics
-        if diagnostic.get("code") != "supported_header_facet"
+        diagnostic.get("count", 0) for diagnostic in diagnostics if diagnostic.get("code") != "supported_header_facet"
     )
     if schema_version == 1:
         if manifest.get("unsupported_count") != visible_unsupported:
@@ -959,7 +954,14 @@ def verify_form_manifest(path: str | Path) -> dict:
             or not canonical_event
             or tuple(
                 representative.get(name, "")
-                for name in ("local_version", "element_version", "positional_path", "scope", "element_type", "raw_event")
+                for name in (
+                    "local_version",
+                    "element_version",
+                    "positional_path",
+                    "scope",
+                    "element_type",
+                    "raw_event",
+                )
             )
             != key
             or {item.get("pointer") for item in delta}
@@ -1009,8 +1011,7 @@ def verify_form_manifest(path: str | Path) -> dict:
         }
         or unsupported.get("commands", {}).get("element_versions")
         != ["0-5-1", "0-20-16", "0-23-16", "0-25-16", "0-26", "0-27"]
-        or unsupported.get("handlers")
-        != {"snapshot_unsupported": 0, "unknown_descriptors": True}
+        or unsupported.get("handlers") != {"snapshot_unsupported": 0, "unknown_descriptors": True}
     ):
         raise ValueError("invalid ordinary form contract registry")
     probe = manifest.get("ordinary_probe", {})
@@ -1029,7 +1030,7 @@ def verify_form_manifest(path: str | Path) -> dict:
                 "event": "ПриОткрытии",
                 "handler": "ПробаПриОткрытии",
                 "sequence": 2,
-            }
+            },
         ]
         or not probe.get("handler_paths")
         or not probe.get("static_probes")
@@ -1120,10 +1121,7 @@ def _ordinary_binding_records(
         )
         if marker_record:
             raw_event = current[0]
-            if (
-                not isinstance(raw_event, (str, int))
-                or not str(raw_event).isdigit()
-            ):
+            if not isinstance(raw_event, (str, int)) or not str(raw_event).isdigit():
                 for index in range(len(current) - 1, -1, -1):
                     item = current[index]
                     if isinstance(item, (list, dict)):
@@ -1134,11 +1132,7 @@ def _ordinary_binding_records(
             elif not valid:
                 yield current_path + (2,), str(raw_event), None, {}
             continue
-        if (
-            valid
-            and binding is current
-            and (outer_handler := _quoted(current[1]))
-        ):
+        if valid and binding is current and (outer_handler := _quoted(current[1])):
             raw_event = (
                 str(current_parent[0])
                 if current_parent
@@ -1148,9 +1142,14 @@ def _ordinary_binding_records(
                 and isinstance(current_parent[0], (str, int))
                 else ""
             )
-            yield current_path, raw_event, outer_handler, _binding_context(
-                current_parent or [],
-                current_index,
+            yield (
+                current_path,
+                raw_event,
+                outer_handler,
+                _binding_context(
+                    current_parent or [],
+                    current_index,
+                ),
             )
             continue
         for index in range(len(current) - 1, -1, -1):
@@ -1343,9 +1342,7 @@ def build_form_inventory(
             procedure_counts[(element_version, scope)] += int(procedure_exists)
             json_pointer = _json_pointer(path)
             positional_path = _json_pointer(path[positional_prefix:])
-            class_counts[
-                (local_version, element_version, positional_path, scope, element_type, raw_event)
-            ] += 1
+            class_counts[(local_version, element_version, positional_path, scope, element_type, raw_event)] += 1
             rows.append(
                 {
                     "data_path": data_path,
@@ -1379,15 +1376,9 @@ def build_form_inventory(
             main.get("form"),
             ("form",),
         ):
-            direct_form_slot = (
-                len(path) == 6
-                and path[:4] == ("form", 0, 0, 4)
-                and path[-1] == 2
-            )
+            direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
             scope, element_name, element_type = (
-                ("form", "", "")
-                if direct_form_slot
-                else _ordinary_main_binding_role(main.get("form"), path, raw_event)
+                ("form", "", "") if direct_form_slot else _ordinary_main_binding_role(main.get("form"), path, raw_event)
             )
             append_candidate(
                 source_path=rel_main,
@@ -1496,9 +1487,7 @@ def build_form_inventory(
             scope,
             element_type,
             raw_event,
-        ), count in sorted(
-            class_counts.items()
-        )
+        ), count in sorted(class_counts.items())
     ]
     report = {
         "schema": "v8unpack_form_inventory_v2",
@@ -1510,9 +1499,7 @@ def build_form_inventory(
         "ordinary_candidates": ordinary_candidates,
         "ordinary_form_version_pairs": {
             f"{local_version}/{element_version}": count
-            for (local_version, element_version), count in sorted(
-                ordinary_version_pairs.items()
-            )
+            for (local_version, element_version), count in sorted(ordinary_version_pairs.items())
         },
         "ordinary_command_candidates": command_candidates,
         "structural_classes": structural_classes,
@@ -1542,9 +1529,8 @@ def build_form_inventory(
                     """
                 )
             ]
-            indexed_commands = conn.execute(
-                "SELECT COUNT(*) FROM form_elements WHERE kind='command'"
-            ).fetchone()[0]
+            indexed_commands = conn.execute("SELECT COUNT(*) FROM form_elements WHERE kind='command'").fetchone()[0]
+
         def index_key(row: dict) -> tuple:
             return (
                 V8UNPACK_CATEGORY_MAP[row["family"]],
@@ -1557,11 +1543,7 @@ def build_form_inventory(
                 row["data_path"],
             )
 
-        candidates = [
-            (row, index_key(row))
-            for row in rows
-            if row["scope"] != "ambiguous"
-        ]
+        candidates = [(row, index_key(row)) for row in rows if row["scope"] != "ambiguous"]
         indexed = [row for row in indexed if row[:3] in ordinary_form_keys]
         indexed_counter = Counter(indexed)
         extracted_ids: Counter = Counter()
@@ -1579,9 +1561,7 @@ def build_form_inventory(
             if row["scope"] == "ambiguous":
                 ambiguous_ids[row["candidate_id"]] += 1
         indexed_identities = Counter(
-            (row[0], row[1], row[2], row[6])
-            for row, count in indexed_counter.items()
-            for _ in range(count)
+            (row[0], row[1], row[2], row[6]) for row, count in indexed_counter.items() for _ in range(count)
         )
         for row, key in remaining_candidates:
             identity = (key[0], key[1], key[2], key[6])
@@ -1592,10 +1572,7 @@ def build_form_inventory(
                 missed_ids[row["candidate_id"]] += 1
 
         def id_multiset(counter: Counter) -> list[dict]:
-            return [
-                {"candidate_id": candidate_id, "count": count}
-                for candidate_id, count in sorted(counter.items())
-            ]
+            return [{"candidate_id": candidate_id, "count": count} for candidate_id, count in sorted(counter.items())]
 
         report["index_comparison"] = {
             "handlers_total": len(indexed),
@@ -1638,10 +1615,7 @@ def verify_form_inventory(report: dict, manifest: dict) -> None:
         comparison.get("handlers_total") != expected.get("handler_rows", {}).get("candidates")
         or comparison.get("candidate_handlers") != expected.get("handler_rows", {}).get("candidates")
         or comparison.get("extracted") != expected.get("handler_rows", {}).get("candidates")
-        or any(
-            comparison.get(key) != 0
-            for key in ("missed", "ambiguous", "misclassified", "unexpected_index_rows")
-        )
+        or any(comparison.get(key) != 0 for key in ("missed", "ambiguous", "misclassified", "unexpected_index_rows"))
     )
     if (
         report.get("schema") != "v8unpack_form_inventory_v2"
@@ -1650,8 +1624,7 @@ def verify_form_inventory(report: dict, manifest: dict) -> None:
         or report.get("local_versions") != expected.get("local_versions")
         or report.get("element_versions") != expected.get("element_versions")
         or report.get("ordinary_candidates") != expected.get("ordinary_candidates")
-        or report.get("ordinary_form_version_pairs")
-        != expected.get("ordinary_form_version_pairs")
+        or report.get("ordinary_form_version_pairs") != expected.get("ordinary_form_version_pairs")
         or report.get("ordinary_command_candidates") != expected.get("ordinary_command_candidates")
         or report.get("structural_classes_sha256") != expected.get("structural_classes_sha256")
         or report.get("rows_sha256") != expected.get("rows_sha256")

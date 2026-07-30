@@ -5826,18 +5826,9 @@ def _ensure_form_elements_schema(conn: sqlite3.Connection) -> None:
         "extra_json TEXT NOT NULL DEFAULT '', "
         "file TEXT NOT NULL)"
     )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_fe_object "
-        "ON form_elements(object_name COLLATE NOCASE)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_fe_object_form "
-        "ON form_elements(object_name, form_name)"
-    )
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_fe_handler "
-        "ON form_elements(handler COLLATE NOCASE)"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_fe_object ON form_elements(object_name COLLATE NOCASE)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_fe_object_form ON form_elements(object_name, form_name)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_fe_handler ON form_elements(handler COLLATE NOCASE)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_fe_kind ON form_elements(kind)")
 
 
@@ -5851,9 +5842,7 @@ def _refresh_form_elements(
     """Atomically replace the format-specific form layer."""
     source_format = detect_format(base_path).primary_format
     if not build_metadata:
-        if conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='form_elements'"
-        ).fetchone():
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='form_elements'").fetchone():
             conn.execute("DELETE FROM form_elements")
         meta = {
             "v8unpack_form_status": "disabled",

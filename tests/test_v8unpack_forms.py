@@ -277,10 +277,7 @@ def test_ordinary_inventory_points_to_outer_event_and_handler(tmp_path):
 
 def test_closed_ordinary_handler_registry_covers_every_proven_class():
     def pointer_parts(pointer: str) -> tuple[object, ...]:
-        return tuple(
-            int(value) if value.isdigit() else value
-            for value in pointer.removeprefix("/").split("/")
-        )
+        return tuple(int(value) if value.isdigit() else value for value in pointer.removeprefix("/").split("/"))
 
     events = {
         _ordinary_event_name(
@@ -294,8 +291,7 @@ def test_closed_ordinary_handler_registry_covers_every_proven_class():
             form_name="",
             element_name="",
         )
-        for _local_version, element_version, path, scope, element_type, raw_event
-        in _ORDINARY_HANDLER_CLASSES
+        for _local_version, element_version, path, scope, element_type, raw_event in _ORDINARY_HANDLER_CLASSES
     }
 
     assert len(_ORDINARY_HANDLER_CLASSES) == 544
@@ -304,9 +300,7 @@ def test_closed_ordinary_handler_registry_covers_every_proven_class():
     assert _sha256(_json_bytes(sorted(_ORDINARY_HANDLER_CLASSES))) == (
         "af0ee3fd7c15aae10085dcdb5bd1d242c5eca40b947649dfec4bd109c2ec51b3"
     )
-    assert _sha256(_json_bytes(sorted(events))) == (
-        "da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c"
-    )
+    assert _sha256(_json_bytes(sorted(events))) == ("da8cba66ddac9aa8afc841fa47b3fd33f9dbd6f6de15b556f54a06fdd600ef6c")
 
 
 def test_table_raw50_exception_does_not_leak_to_other_forms():
@@ -320,16 +314,22 @@ def test_table_raw50_exception_does_not_leak_to_other_forms():
         "element_name": "Продукция",
     }
 
-    assert _ordinary_event_name(
-        **values,
-        owner="ПередачаТоваров",
-        form_name="ФормаПодбора",
-    ) == "ExternalEvent"
-    assert _ordinary_event_name(
-        **values,
-        owner="ДругойДокумент",
-        form_name="ФормаПодбора",
-    ) == "NewWriteProcessing"
+    assert (
+        _ordinary_event_name(
+            **values,
+            owner="ПередачаТоваров",
+            form_name="ФормаПодбора",
+        )
+        == "ExternalEvent"
+    )
+    assert (
+        _ordinary_event_name(
+            **values,
+            owner="ДругойДокумент",
+            form_name="ФормаПодбора",
+        )
+        == "NewWriteProcessing"
+    )
 
 
 def test_parse_form_keeps_duplicate_proven_element_handlers(tmp_path, monkeypatch):
@@ -341,11 +341,26 @@ def test_parse_form_keeps_duplicate_proven_element_handlers(tmp_path, monkeypatc
     )
     marker = "e1692cc2-605b-4535-84dd-28440238746c"
     binding = ["3", '"ПолеПриИзменении"', ["1", '"ПолеПриИзменении"']]
-    raw = [None, None, [None, None, None, None, [None, ["2147483647", marker, binding], None, [
-        "2147483647",
-        marker,
-        binding,
-    ]]]]
+    raw = [
+        None,
+        None,
+        [
+            None,
+            None,
+            None,
+            None,
+            [
+                None,
+                ["2147483647", marker, binding],
+                None,
+                [
+                    "2147483647",
+                    marker,
+                    binding,
+                ],
+            ],
+        ],
+    ]
     elements_path = folder / "DocumentForm.elem.json"
     elements = json.loads(elements_path.read_text())
     elements["tree"] = [{"name": "Поле", "type": "Field"}]
@@ -374,10 +389,7 @@ def test_parse_form_keeps_duplicate_proven_element_handlers(tmp_path, monkeypatc
         resolve_safe=lambda path: tmp_path / path,
         read_file_fn=lambda path: (tmp_path / path).read_text(encoding="utf-8-sig"),
         grep_fn=lambda *_args, **_kwargs: [],
-        glob_files_fn=lambda pattern: [
-            path.relative_to(tmp_path).as_posix()
-            for path in tmp_path.glob(pattern)
-        ],
+        glob_files_fn=lambda pattern: [path.relative_to(tmp_path).as_posix() for path in tmp_path.glob(pattern)],
         format_info=detect_format(tmp_path),
         idx_reader=reader,
     )
@@ -391,9 +403,9 @@ def test_parse_form_keeps_duplicate_proven_element_handlers(tmp_path, monkeypatc
 
     assert len(parsed[0]["handlers"]) == 2
     assert {
-            (
-                row["scope"],
-                row["element"],
+        (
+            row["scope"],
+            row["element"],
             row["element_type"],
             row["event"],
             row["handler"],
@@ -656,11 +668,7 @@ def test_full_build_and_update_keep_identical_rows(tmp_path, monkeypatch):
 
     with sqlite3.connect(db_path) as conn:
         before = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()
-        before_meta = dict(
-            conn.execute(
-                "SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"
-            )
-        )
+        before_meta = dict(conn.execute("SELECT key, value FROM index_meta WHERE key LIKE 'v8unpack_form_%'"))
     builder.update(str(tmp_path))
     with sqlite3.connect(db_path) as conn:
         after = conn.execute("SELECT * FROM form_elements ORDER BY id").fetchall()

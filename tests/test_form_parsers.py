@@ -253,9 +253,7 @@ class TestParseFormXml:
         assert "ВЫБРАТЬ" in dl["query_text"]
 
     def test_cf_main_attribute_tag(self):
-        xml = _CF_FORM_XML.replace("<Main>", "<MainAttribute>").replace(
-            "</Main>", "</MainAttribute>"
-        )
+        xml = _CF_FORM_XML.replace("<Main>", "<MainAttribute>").replace("</Main>", "</MainAttribute>")
         assert parse_form_xml(xml)["attributes"][0]["main"] is True
 
     def test_cf_ext_info_scope(self):

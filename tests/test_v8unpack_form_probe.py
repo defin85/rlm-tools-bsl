@@ -23,9 +23,7 @@ def test_probe_matrix_json_pointer_and_minimal_delta():
 
     changed = {"data": {"Страница/Поле": {"raw": [0, 1, ["x", "after"]]}}}
     differences = list(json_differences(value, changed))
-    assert differences == [
-        (("data", "Страница/Поле", "raw", 2, 1), "before", "after")
-    ]
+    assert differences == [(("data", "Страница/Поле", "raw", 2, 1), "before", "after")]
     assert json_pointer(differences[0][0]) == pointer
 
 

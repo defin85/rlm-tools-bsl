@@ -72,11 +72,7 @@ def test_ordinary_binding_inventory_keeps_outer_record_and_context():
 
 
 def test_ordinary_binding_inventory_uses_outer_handler_name():
-    rows = list(
-        _ordinary_binding_candidates(
-            ["3", '"Обработчик"', ["1", '"Представление"']]
-        )
-    )
+    rows = list(_ordinary_binding_candidates(["3", '"Обработчик"', ["1", '"Представление"']]))
     assert rows[0][2] == "Обработчик"
 
 
@@ -97,10 +93,27 @@ def test_ordinary_main_binding_roles():
         "",
     )
     assert _ordinary_main_binding_role(
-        [[[None, [None, None, [None, None, [[
-            "e69bf21d-97b2-4f37-86db-675aea9ec2cb",
-            "3",
-        ]]]]]]],
+        [
+            [
+                [
+                    None,
+                    [
+                        None,
+                        None,
+                        [
+                            None,
+                            None,
+                            [
+                                [
+                                    "e69bf21d-97b2-4f37-86db-675aea9ec2cb",
+                                    "3",
+                                ]
+                            ],
+                        ],
+                    ],
+                ]
+            ]
+        ],
         ("form", 0, 0, 1, 2, 2, 0, 2, 1, 7, 5, 4),
         "6",
     ) == ("command", "", "")
@@ -514,11 +527,14 @@ def test_form_oracle_manifest_is_self_contained_and_complete():
 
     assert manifest["paired_managed"]["forms"] == 298
     assert manifest["live_coverage"]["forms"] == 4037
-    assert sum(
-        scope["total"]
-        for version in manifest["inventory"]["ordinary_candidates"].values()
-        for scope in version.values()
-    ) == 53328
+    assert (
+        sum(
+            scope["total"]
+            for version in manifest["inventory"]["ordinary_candidates"].values()
+            for scope in version.values()
+        )
+        == 53328
+    )
     assert manifest["inventory"]["structural_classes"] == 544
     assert manifest["inventory"]["projections"]["total"] == 4 * 4037
     assert [row["canonical_event"] for row in manifest["handler_contracts"]] == ["BeforeOpen", "OnOpen"]

@@ -424,9 +424,7 @@ class V8UnpackMetadataResult:
             "v8unpack_metadata_facet_total": str(self.facet_total),
             "v8unpack_metadata_facet_supported": str(self.facet_supported),
             "v8unpack_metadata_facet_unsupported": str(self.facet_total - self.facet_supported),
-            "v8unpack_metadata_facets_json": json.dumps(
-                self.facets, ensure_ascii=False, separators=(",", ":")
-            ),
+            "v8unpack_metadata_facets_json": json.dumps(self.facets, ensure_ascii=False, separators=(",", ":")),
             "v8unpack_metadata_unsupported_count": str(self.unsupported_count),
             "v8unpack_metadata_diagnostic_groups_total": str(self.diagnostic_groups_total),
             "v8unpack_metadata_diagnostics_json": json.dumps(
@@ -480,11 +478,15 @@ def read_v8unpack_json(root: str | Path, path: str | Path) -> dict:
 def _projected_forms(root: Path) -> tuple[set[str], set[tuple[str, str]]]:
     uuids: set[str] = set()
     common_forms: set[tuple[str, str]] = set()
-    entries = [
-        ("CommonForm", path.name, path, "CommonForm")
-        for path in sorted((root / "CommonForm").iterdir(), key=lambda item: item.name)
-        if path.is_dir()
-    ] if (root / "CommonForm").is_dir() else []
+    entries = (
+        [
+            ("CommonForm", path.name, path, "CommonForm")
+            for path in sorted((root / "CommonForm").iterdir(), key=lambda item: item.name)
+            if path.is_dir()
+        ]
+        if (root / "CommonForm").is_dir()
+        else []
+    )
     for family, form_kind in _FORM_KIND_BY_FAMILY.items():
         family_dir = root / family
         if not family_dir.is_dir():
@@ -495,7 +497,9 @@ def _projected_forms(root: Path) -> tuple[set[str], set[tuple[str, str]]]:
                 continue
             entries.extend(
                 (family, owner_dir.name, form_dir, form_kind)
-                for form_dir in sorted((path for path in forms_dir.iterdir() if path.is_dir()), key=lambda path: path.name)
+                for form_dir in sorted(
+                    (path for path in forms_dir.iterdir() if path.is_dir()), key=lambda path: path.name
+                )
             )
     for family, owner, form_dir, form_kind in entries:
         try:
@@ -532,11 +536,7 @@ def _collect_descriptor_names(
         for left, right in zip(value, value[1:]):
             if isinstance(left, list) and isinstance(right, str):
                 identifiers = [
-                    item
-                    for item in left
-                    if isinstance(item, str)
-                    and len(item) == 36
-                    and item.count("-") == 4
+                    item for item in left if isinstance(item, str) and len(item) == 36 and item.count("-") == 4
                 ]
                 if len(identifiers) == 1:
                     try:
@@ -800,9 +800,7 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
             if owner_version != object_version and owner_version not in OWNER_OBJECT_VERSION_OVERRIDES.get(kind, ()):
                 if object_version == "802" and kind == "CommonForm" and owner_version in {"9", "12"}:
                     tag = f"obj_version:{owner_version}"
-                    classification, semantic, projection, supported = V8UNPACK_FACET_CONTRACT_802[
-                        (kind, None, tag)
-                    ]
+                    classification, semantic, projection, supported = V8UNPACK_FACET_CONTRACT_802[(kind, None, tag)]
                     form_supported = supported and (kind, object_name) in projected_common_forms
                     facet_events.append(
                         (
@@ -944,15 +942,12 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
             if len(facet) != facet_count + 2:
                 events.extend(("unsupported_header_shape", "owner", rel) for _ in range(facet_count))
                 facet_events.extend(
-                    (kind, index, facet_uuid, "blocked", "Unknown", None, False, rel)
-                    for _ in range(facet_count)
+                    (kind, index, facet_uuid, "blocked", "Unknown", None, False, rel) for _ in range(facet_count)
                 )
                 continue
             if facet_count > 0:
                 contract = (
-                    V8UNPACK_FACET_CONTRACT_802.get((kind, index, facet_uuid))
-                    if object_version == "802"
-                    else None
+                    V8UNPACK_FACET_CONTRACT_802.get((kind, index, facet_uuid)) if object_version == "802" else None
                 )
                 classification, semantic, projection, supported = contract or (
                     "blocked",
@@ -1019,9 +1014,7 @@ def collect_v8unpack_metadata(root: str | Path, *, build_synonyms: bool = True) 
                 for child, attr_kind, ts_name in rows:
                     try:
                         _child_uuid, attr_name, attr_synonym = _descriptor(child)
-                        result.metadata_attribute_names[
-                            (kind, object_name, _child_uuid)
-                        ] = attr_name
+                        result.metadata_attribute_names[(kind, object_name, _child_uuid)] = attr_name
                         attr_type, unresolved = _decode_pattern(
                             child,
                             resolved_types,

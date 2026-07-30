@@ -1022,9 +1022,7 @@ def _rlm_start(
             "v8unpack_metadata_facet_unsupported": idx_stats.get("v8unpack_metadata_facet_unsupported"),
             "v8unpack_metadata_facets_json": idx_stats.get("v8unpack_metadata_facets_json"),
             "v8unpack_metadata_unsupported_count": idx_stats.get("v8unpack_metadata_unsupported_count"),
-            "v8unpack_metadata_diagnostic_groups_total": idx_stats.get(
-                "v8unpack_metadata_diagnostic_groups_total"
-            ),
+            "v8unpack_metadata_diagnostic_groups_total": idx_stats.get("v8unpack_metadata_diagnostic_groups_total"),
             "v8unpack_metadata_diagnostics_json": idx_stats.get("v8unpack_metadata_diagnostics_json"),
             "metadata_objects_count": idx_stats.get("metadata_objects", 0),
             "metadata_type_ids_count": idx_stats.get("metadata_type_ids", 0),
@@ -1036,12 +1034,8 @@ def _rlm_start(
             "warnings": idx_warnings,
         }
         if idx_stats.get("source_format") == "v8unpack":
-            index_block["v8unpack_form_status"] = idx_stats.get(
-                "v8unpack_form_status"
-            )
-            index_block["v8unpack_form_projections_json"] = idx_stats.get(
-                "v8unpack_form_projections_json"
-            )
+            index_block["v8unpack_form_status"] = idx_stats.get("v8unpack_form_status")
+            index_block["v8unpack_form_projections_json"] = idx_stats.get("v8unpack_form_projections_json")
     else:
         # No index loaded — keep the common key set stable. Format-specific
         # enrichments such as v8unpack_form_status are present only when applicable.

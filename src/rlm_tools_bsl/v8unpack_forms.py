@@ -745,9 +745,7 @@ def _ordinary_handlers(
     local_version = str(main["obj_version"])
     element_version = main["Версия элементов формы"]
     if (local_version, element_version) not in _ORDINARY_FORM_VERSION_PAIRS:
-        return [], "unsupported", 1, [
-            ("unsupported_contract", "handler", rel_elements)
-        ]
+        return [], "unsupported", 1, [("unsupported_contract", "handler", rel_elements)]
 
     def descriptor(
         path: tuple[object, ...],
@@ -853,9 +851,7 @@ def _ordinary_handlers(
     for path, raw_event, handler, _context in _ordinary_binding_records(main.get("form"), ("form",)):
         direct_form_slot = len(path) == 6 and path[:4] == ("form", 0, 0, 4) and path[-1] == 2
         scope, element_name, element_type = (
-            ("form", "", "")
-            if direct_form_slot
-            else _ordinary_main_binding_role(main.get("form"), path, raw_event)
+            ("form", "", "") if direct_form_slot else _ordinary_main_binding_role(main.get("form"), path, raw_event)
         )
         if handler is None:
             record_malformed(
